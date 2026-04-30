@@ -1,0 +1,67 @@
+/* =============================================
+   print-styles.css — Print-friendly RTL layout for /reports/financial/[period]
+   =============================================
+   Activated only via @media print. The page imports this CSS unconditionally;
+   the at-rule scopes it to printing.
+   ============================================= */
+
+@media print {
+  /* Hide all chrome (sidebar, header, nav, etc.) — only the report content
+     should print. Pages that want to be printable add `data-print-area` to
+     the wrapper around the report. */
+  body * {
+    visibility: hidden;
+  }
+  [data-print-area],
+  [data-print-area] * {
+    visibility: visible;
+  }
+  [data-print-area] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 0;
+  }
+
+  /* Hide buttons (print button, period selector) on print */
+  [data-print-hide],
+  [data-print-hide] * {
+    display: none !important;
+  }
+
+  /* RTL direction is inherited from <html dir="rtl"> in layout */
+
+  /* Force light background for printing */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Cards: remove subtle shadows/backgrounds — keep borders only */
+  .card,
+  [class*='Card'] {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    background: white !important;
+    break-inside: avoid;
+  }
+
+  /* Bars: render as solid black/grey since color may not print well */
+  .bg-success {
+    background: #555 !important;
+  }
+  .bg-destructive {
+    background: #999 !important;
+  }
+  .bg-primary {
+    background: #333 !important;
+  }
+  .bg-muted {
+    background: #eee !important;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 1.5cm;
+  }
+}

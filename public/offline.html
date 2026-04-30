@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>بدون اتصال · نظام إدارة العمارة</title>
+    <meta
+      name="description"
+      content="لا يوجد اتصال بالإنترنت حالياً. حاول مجدداً عند توفّر الشبكة."
+    />
+    <meta name="theme-color" content="#0f172a" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font-family:
+          'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+          sans-serif;
+        background: #ffffff;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        line-height: 1.6;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0a0e1a;
+          color: #f8fafc;
+        }
+      }
+      main {
+        max-width: 28rem;
+        text-align: center;
+      }
+      .icon-wrap {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 9999px;
+        background: rgba(245, 158, 11, 0.12);
+        color: #d97706;
+        margin-bottom: 24px;
+      }
+      .icon-wrap svg {
+        width: 32px;
+        height: 32px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      p.lead {
+        color: #64748b;
+        margin-bottom: 24px;
+      }
+      @media (prefers-color-scheme: dark) {
+        p.lead {
+          color: #94a3b8;
+        }
+      }
+      .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+      }
+      @media (min-width: 480px) {
+        .actions {
+          flex-direction: row;
+        }
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font: inherit;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border-radius: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: opacity 0.15s ease;
+        text-decoration: none;
+      }
+      .btn:hover {
+        opacity: 0.9;
+      }
+      .btn.primary {
+        background: #0f172a;
+        color: #f8fafc;
+      }
+      @media (prefers-color-scheme: dark) {
+        .btn.primary {
+          background: #f8fafc;
+          color: #0f172a;
+        }
+      }
+      .btn.outline {
+        background: transparent;
+        border-color: #cbd5e1;
+        color: inherit;
+      }
+      @media (prefers-color-scheme: dark) {
+        .btn.outline {
+          border-color: #334155;
+        }
+      }
+      .footer {
+        margin-top: 32px;
+        padding-top: 16px;
+        border-top: 1px solid #e2e8f0;
+        font-size: 0.75rem;
+        color: #94a3b8;
+      }
+      @media (prefers-color-scheme: dark) {
+        .footer {
+          border-top-color: #1e293b;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main role="main">
+      <div class="icon-wrap" aria-hidden="true">
+        <!-- WiFi-off icon (inline SVG, no external request) -->
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 20h.01" />
+          <path d="M8.5 16.429a5 5 0 0 1 7 0" />
+          <path d="M5 12.859a10 10 0 0 1 5.17-2.69" />
+          <path d="M19 12.859a10 10 0 0 0-2.007-1.523" />
+          <path d="M2 8.82a15 15 0 0 1 4.177-2.643" />
+          <path d="M22 8.82a15 15 0 0 0-11.288-3.764" />
+          <path d="m2 2 20 20" />
+        </svg>
+      </div>
+      <h1>لا يوجد اتصال بالإنترنت</h1>
+      <p class="lead">
+        لم نَتمكَّن من تحميل هذه الصفحة. تأكَّد من اتصال الجوال أو الواي-فاي ثم
+        حاول مرة أخرى.
+      </p>
+      <div class="actions">
+        <a href="/dashboard" class="btn primary">العودة للرئيسية</a>
+        <button type="button" class="btn outline" onclick="location.reload()">
+          إعادة المحاولة
+        </button>
+      </div>
+      <p class="footer">
+        الصفحات التي زرتها مسبقاً قد تَظل تَعمل من ذاكرة الـ Service Worker.
+      </p>
+    </main>
+  </body>
+</html>
