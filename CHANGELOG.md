@@ -8,6 +8,50 @@
 
 ---
 
+## [1.0.0-rc.1+5] — 2026-05-01 — Phase 21: /contact with password upfront + PasswordInput component
+
+> Operator follow-up to Phase 20: extend the password-upfront pattern to `/contact` (trial + enterprise tiers), so EVERY signup form now has the same UX (email + password + wait for super_admin approval). Also adds reusable `PasswordInput` component with show/hide toggle (eye icon) — used in all 7 password fields across the app.
+
+### Added
+
+- **`src/components/ui/password-input.tsx`** — new client component that wraps the base `Input` with an inline 👁 toggle (lucide Eye / EyeOff). Keyboard accessible, `tabIndex={-1}` so the toggle doesn't steal focus from the input, Arabic `aria-label`. Used in: LoginForm, SubscribeForm, ResetPasswordForm (×2), RegisterForm (legacy, kept warm), JoinForm, ContactForm.
+
+- **`supabase/22_phase21.sql`** (new migration):
+  - Adds `applicant_user_id uuid references auth.users(id) on delete set null` to `subscription_requests` (nullable for backwards compat with pre-Phase-21 rows).
+  - Drops + recreates `submit_contact_request` with optional `p_user_id` 10th arg (same pattern as Phase 20 `create_subscription_order`).
+  - New `get_my_pending_contact_requests()` RPC: SECURITY DEFINER, scopes by `auth.uid()`, returns the calling user's own pending contact requests (status in `new`/`contacted`/`qualified`).
+  - Updates `subscription_requests_validate_update` trigger to make `applicant_user_id` immutable post-INSERT.
+  - Index `idx_subscription_requests_applicant` for the user-scoped lookup.
+
+### Changed
+
+- **`src/components/marketing/contact-form.tsx`**: added `<PasswordInput>` field with helper text matching Phase 20's wording. Phone + password share a row; city moved to its own row.
+
+- **`src/actions/marketing.ts` — `submitContactRequestAction`**:
+  - `contactRequestSchema` Zod gets `password: z.string().min(8).max(72)`.
+  - Before calling `submit_contact_request` RPC, calls `authAdmin.createUser({ email, password, email_confirm: true, user_metadata })` to pre-create the auth account.
+  - Passes the `userId` as `p_user_id` to the RPC.
+  - On RPC failure: best-effort `authAdmin.deleteUser(userId)` to avoid orphan accounts.
+  - Surfaces clear Arabic error if email is already taken.
+
+- **`src/app/(app)/layout.tsx`**: extended the no-buildings gate to ALSO check `get_my_pending_contact_requests()`. Users with a pending contact request now redirect to `/account/pending` (same as pending subscription orders).
+
+- **`src/app/account/pending/page.tsx`**: new card section shows pending contact request with tier-specific message ("trial" → 30-day free trial after verification; "enterprise" → personalized pricing discussion). Status-aware messaging for `contacted` state.
+
+- **`src/types/database.ts`**: `submit_contact_request.Args` gets optional `p_user_id`. New `get_my_pending_contact_requests` RPC type.
+
+- **6 other password fields** (login, subscribe, reset×2, register, join) switched from `Input type="password"` to `PasswordInput` for consistent show/hide toggle UX.
+
+### Tests
+- sql-validate ✅ **385/385** (Phase 20 tests cover the same pattern; Phase 21 reuses the validated approach)
+- typecheck ✅ / lint ✅ / build ✅ / SW postbuild ✅ / audit ✅ 0 vulnerabilities
+
+### Lessons (new)
+
+- **#52**: when the operator picks "all signups go through approval" (option D), apply the same `(form + password) → createUser → pending-RPC → pending page` pattern across EVERY entry surface, not just the primary one. /contact looked optional ("just a CRM form") but the operator's mental model was unified across every form on the site. Lesson: when a UX choice is global, audit every form, every CTA, every dead-end URL — they all need to match.
+
+---
+
 ## [1.0.0-rc.1+4] — 2026-05-01 — Phase 20: /subscribe with password upfront
 
 > Operational refactor requested during smoke testing: change `/subscribe` to ask for password at registration, gate login behind super_admin approval, drop the 3-email "invite" dance. The user explicitly chose this UX after reviewing the original Phase 18 design ("payment-first, account on approval"). 7 files touched + 1 new SQL migration. Existing Phase 18 RPCs preserved with backwards compatibility.

@@ -611,6 +611,7 @@ const allFiles = [
   'supabase/19_phase18.sql',
   'supabase/20_phase19.sql',
   'supabase/21_phase20.sql',
+  'supabase/22_phase21.sql',
 ]
 
 log('\n=== Applying SQL files 01→19 (raw output) ===')

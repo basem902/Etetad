@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -115,14 +116,34 @@ export function ContactForm({ tiers }: Props) {
         </div>
 
         <div>
-          <Label htmlFor="city">المدينة</Label>
-          <Input
-            id="city"
-            name="city"
+          <Label htmlFor="password">
+            كلمة المرور <span className="text-destructive">*</span>
+          </Label>
+          <PasswordInput
+            id="password"
+            name="password"
+            required
+            minLength={8}
+            maxLength={72}
+            dir="ltr"
+            autoComplete="new-password"
             disabled={isPending}
-            placeholder="الرياض"
+            placeholder="8 أحرف على الأقل"
           />
+          <p className="text-xs text-muted-foreground mt-1">
+            ستَستَخدمها للدخول بعد اعتماد طَلبك من إدارة المنصة.
+          </p>
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="city">المدينة (اختياري)</Label>
+        <Input
+          id="city"
+          name="city"
+          disabled={isPending}
+          placeholder="الرياض"
+        />
       </div>
 
       <div>

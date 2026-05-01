@@ -53,6 +53,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       redirect('/account/pending')
     }
 
+    // v0.21 (option D): pending contact request (trial/enterprise) — same
+    // gate as /subscribe. RPC scopes by auth.uid() server-side.
+    const { data: pendingContacts } = await supabase.rpc(
+      'get_my_pending_contact_requests',
+    )
+    if (pendingContacts && pendingContacts.length > 0) {
+      redirect('/account/pending')
+    }
+
     redirect('/onboarding')
   }
 

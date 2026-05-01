@@ -5,6 +5,7 @@ import { Building2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { signupAndJoinAction } from '@/actions/joins'
@@ -112,10 +113,9 @@ export function JoinForm({ rawToken, buildingName, city }: Props) {
             <Label htmlFor="password">
               كلمة المرور <span className="text-destructive">*</span>
             </Label>
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               required
               minLength={8}
               maxLength={72}

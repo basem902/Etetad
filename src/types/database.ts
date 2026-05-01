@@ -1420,6 +1420,7 @@ export type Database = {
       }
       // Phase 16 v3.32 — server-only choke point for /contact submissions
       // (anon INSERT direct removed in round 4)
+      // Phase 21 — added optional p_user_id for option-D flow (pre-registered user)
       submit_contact_request: {
         Args: {
           p_full_name: string
@@ -1431,6 +1432,7 @@ export type Database = {
           p_interested_tier: string | null
           p_message: string | null
           p_honeypot: string | null
+          p_user_id?: string | null
         }
         Returns: string
       }
@@ -1692,6 +1694,19 @@ export type Database = {
           created_at: string
           is_renewal: boolean
           rejection_reason: string | null
+        }[]
+      }
+      // Phase 21 — authenticated user reads their own pending contact requests
+      // (option D: /contact also pre-creates auth user + waits for review)
+      get_my_pending_contact_requests: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          status: 'new' | 'contacted' | 'qualified'
+          building_name: string
+          interested_tier: string | null
+          created_at: string
+          notes: string | null
         }[]
       }
     }

@@ -53,10 +53,16 @@ export default async function AccountPendingPage() {
     'get_my_pending_subscription_orders',
   )
 
-  // No pending join requests AND no pending subscription orders → onboarding
+  // v0.21: also fetch pending contact requests (trial/enterprise — option D)
+  const { data: pendingContacts } = await supabase.rpc(
+    'get_my_pending_contact_requests',
+  )
+
+  // No pending of any kind → onboarding
   if (
     (!pending || pending.length === 0) &&
-    (!pendingSubs || pendingSubs.length === 0)
+    (!pendingSubs || pendingSubs.length === 0) &&
+    (!pendingContacts || pendingContacts.length === 0)
   ) {
     redirect('/onboarding')
   }
@@ -92,6 +98,10 @@ export default async function AccountPendingPage() {
   )
   const rejectedSubOrder = pendingSubsArr.find((s) => s.status === 'rejected')
 
+  // v0.21: pending contact request (option D — trial/enterprise)
+  const pendingContactsArr = pendingContacts ?? []
+  const activeContactRequest = pendingContactsArr[0]
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="border-b border-border bg-background/95 backdrop-blur">
@@ -120,6 +130,47 @@ export default async function AccountPendingPage() {
 
       <main className="flex-1 px-4 py-12 md:px-6 md:py-16">
         <div className="mx-auto max-w-2xl space-y-6">
+          {activeContactRequest ? (
+            <Card>
+              <CardContent className="pt-8 pb-10 text-center">
+                <div
+                  aria-hidden
+                  className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-warning/10 text-warning"
+                >
+                  <Clock className="h-7 w-7" />
+                </div>
+                <h2 className="text-xl font-semibold mb-2">
+                  طَلب التَواصل بانتظار المُراجعة
+                </h2>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  طَلبك لـ{' '}
+                  <strong>{activeContactRequest.building_name}</strong>{' '}
+                  بانتظار مُراجعة إدارة المنصة. سَنَتَواصل مَعك قَريباً عبر
+                  بَريدك أو رَقم جَوالك.
+                </p>
+                {activeContactRequest.interested_tier === 'trial' && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    باقة التَجربة المَجانية (30 يوم) — تُفعَّل بعد التَأكُّد من
+                    البَيانات.
+                  </p>
+                )}
+                {activeContactRequest.interested_tier === 'enterprise' && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    باقة المؤسسات — مُحادَثة شَخصية لتَحديد الأسعار + التَفاصيل.
+                  </p>
+                )}
+                {activeContactRequest.status === 'contacted' && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    تَواصلنا مَعك بالفعل. اطَّلِع على بَريدك للتَفاصيل.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-4">
+                  أُرسل الطلب {formatRelative(activeContactRequest.created_at)}.
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {activeSubOrder ? (
             <Card>
               <CardContent className="pt-8 pb-10 text-center">

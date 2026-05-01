@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { resetPasswordAction } from '@/actions/auth'
 
@@ -32,10 +32,9 @@ export function ResetPasswordForm() {
     <form action={onSubmit} className="space-y-4" noValidate>
       <div>
         <Label htmlFor="password">كلمة المرور الجديدة</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           minLength={8}
@@ -46,10 +45,9 @@ export function ResetPasswordForm() {
 
       <div>
         <Label htmlFor="confirm">تأكيد كلمة المرور</Label>
-        <Input
+        <PasswordInput
           id="confirm"
           name="confirm"
-          type="password"
           autoComplete="new-password"
           required
           minLength={8}

@@ -6,6 +6,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -149,10 +150,9 @@ export function SubscribeForm({ initialTier = 'pro', initialCycle = 'yearly' }: 
               <Label htmlFor="password">
                 كلمة المرور <span className="text-destructive">*</span>
               </Label>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 required
                 minLength={8}
                 maxLength={72}

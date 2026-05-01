@@ -15,10 +15,15 @@ type ActionResult = { success: true; message?: string } | { success: false; erro
 
 // Phase 16 contact form (anon-callable from /contact).
 // honeypot is invisible — bots fill it, we reject.
+// v0.21: password upfront (option D — unified UX with /subscribe).
 const contactRequestSchema = z.object({
   full_name: z.string().min(2).max(120),
   email: z.string().email().max(254),
   phone: z.string().max(40).optional().or(z.literal('')),
+  password: z
+    .string()
+    .min(8, 'كلمة المرور يَجب أن تَكون 8 أحرف على الأقل')
+    .max(72, 'كلمة المرور طويلة جداً'),
   building_name: z.string().min(2).max(200),
   city: z.string().max(80).optional().or(z.literal('')),
   estimated_apartments: z
@@ -70,6 +75,7 @@ export async function submitContactRequestAction(
     full_name: fdGet(formData, 'full_name') ?? '',
     email: fdGet(formData, 'email') ?? '',
     phone: fdGet(formData, 'phone') ?? '',
+    password: fdGet(formData, 'password') ?? '',
     building_name: fdGet(formData, 'building_name') ?? '',
     city: fdGet(formData, 'city') ?? '',
     estimated_apartments: fdGet(formData, 'estimated_apartments') ?? '',
@@ -79,7 +85,10 @@ export async function submitContactRequestAction(
   })
   if (!parsed.success) {
     // honeypot violations LOOK like normal validation failures — don't tip off bots
-    return { success: false, error: 'البيانات غير صالحة. تَحقَّق وحاول مجدَّداً.' }
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? 'البيانات غير صالحة. تَحقَّق وحاول مجدَّداً.',
+    }
   }
 
   const data = parsed.data
@@ -111,6 +120,38 @@ export async function submitContactRequestAction(
     }
   }
 
+  // v0.21 (option D): pre-create auth user with the chosen password. Same
+  // pattern as Phase 20 /subscribe. The user can login immediately but is
+  // gated to /account/pending until super_admin reviews the request.
+  const { getAuthAdmin } = await import('@/lib/supabase/auth-admin')
+  const authAdmin = getAuthAdmin()
+  const { data: createdUser, error: createErr } = await authAdmin.createUser({
+    email: data.email,
+    password: data.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: data.full_name,
+      phone: data.phone || null,
+    },
+  })
+
+  if (createErr || !createdUser?.user) {
+    const msg = createErr?.message?.toLowerCase() ?? ''
+    if (
+      msg.includes('already') ||
+      msg.includes('exists') ||
+      msg.includes('duplicate')
+    ) {
+      return {
+        success: false,
+        error:
+          'هذا البَريد مُسَجَّل سابقاً. سَجِّل الدخول من /login، أو استَخدم بَريداً مُختلفاً.',
+      }
+    }
+    return { success: false, error: 'تَعذَّر إنشاء الحساب. حاول مجدَّداً.' }
+  }
+  const userId = createdUser.user.id
+
   const { data: insertedId, error: insertErr } = await admin.rpc(
     'submit_contact_request',
     {
@@ -123,12 +164,18 @@ export async function submitContactRequestAction(
       p_interested_tier: data.interested_tier || null,
       p_message: data.message || null,
       p_honeypot: data.honeypot || null,
+      p_user_id: userId,
     },
   )
 
   if (insertErr || !insertedId) {
-    // RPC raises on validation failure (length, honeypot, etc.). Surface a
-    // generic error to avoid tipping off bots which check failed.
+    // RPC failed AFTER auth user was created → orphan account. Best-effort
+    // cleanup so the email is reusable.
+    try {
+      await authAdmin.deleteUser(userId)
+    } catch {
+      // last-resort
+    }
     return { success: false, error: 'تَعذَّر إرسال الطلب. حاول مجدَّداً.' }
   }
 
