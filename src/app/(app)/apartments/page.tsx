@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/shared/page-header'
 import { ApartmentsFilters } from '@/components/apartments/apartments-filters'
 import { ApartmentsTable } from '@/components/apartments/apartments-table'
 import { ShareJoinLink } from '@/components/apartments/share-join-link'
+import { BuildingSettingsDialog } from '@/components/building/building-settings-dialog'
 import { listApartments, type ApartmentsFilters as Filters } from '@/lib/queries/apartments'
 import type { ApartmentStatus } from '@/types/database'
 
@@ -66,7 +67,7 @@ export default async function ApartmentsPage({
     filters.floor = undefined
   }
 
-  const [rows, pendingCountRes] = await Promise.all([
+  const [rows, pendingCountRes, buildingRow] = await Promise.all([
     listApartments(buildingId, filters),
     // Phase 17: count pending join requests for the badge in header
     supabase
@@ -74,8 +75,15 @@ export default async function ApartmentsPage({
       .select('*', { count: 'exact', head: true })
       .eq('building_id', buildingId)
       .eq('status', 'pending'),
+    // Phase 22: building metadata for the settings dialog
+    supabase
+      .from('buildings')
+      .select('name, address, city, total_apartments, elevators_count, default_monthly_fee')
+      .eq('id', buildingId)
+      .single(),
   ])
   const pendingCount = pendingCountRes.count ?? 0
+  const building = buildingRow.data
 
   return (
     <div className="space-y-6">
@@ -108,6 +116,16 @@ export default async function ApartmentsPage({
               </Link>
             </Button>
             <ShareJoinLink buildingId={buildingId} />
+            {building && (
+              <BuildingSettingsDialog
+                initialName={building.name}
+                initialAddress={building.address}
+                initialCity={building.city}
+                initialTotalApartments={building.total_apartments}
+                initialElevatorsCount={building.elevators_count}
+                initialDefaultMonthlyFee={building.default_monthly_fee}
+              />
+            )}
             <Button asChild size="sm">
               <Link href="/apartments/new">
                 <Plus className="h-4 w-4" />

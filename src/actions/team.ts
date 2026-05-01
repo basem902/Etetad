@@ -1,10 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthAdmin } from '@/lib/supabase/auth-admin'
 import { getActiveBuildingId } from '@/lib/tenant'
 import { hasRole, isSuperAdmin } from '@/lib/permissions'
+import type { MembershipRole } from '@/types/database'
 import {
   addTeamMemberSchema,
   deactivateTeamMemberSchema,
@@ -176,4 +178,68 @@ export async function deactivateTeamMemberAction(
 
   revalidatePath('/team')
   return { success: true, message: 'تم إزالة العضو من الفريق' }
+}
+
+// ============================================================================
+// Phase 22 — change_member_role
+// ============================================================================
+// admin يُرَقِّي أو يُخَفِّض دَور أي عُضو في عمارته. يَحفظ apartment_members كما
+// هي (لا يَكسر صَلة الساكن بشَقَّته). الـ DB-side RPC يَفرض last-admin
+// protection.
+// ============================================================================
+const changeMemberRoleSchema = z.object({
+  membership_id: z.string().uuid(),
+  new_role: z.enum(['admin', 'treasurer', 'committee', 'resident', 'technician']),
+})
+
+export async function changeMemberRoleAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const buildingId = await getActiveBuildingId()
+  if (!buildingId) return { success: false, error: 'لم يتم تحديد عمارة نشطة' }
+
+  const auth = await ensureAdmin(buildingId)
+  if (!auth.ok) return { success: false, error: auth.error }
+
+  const parsed = changeMemberRoleSchema.safeParse({
+    membership_id: fdGet(formData, 'membership_id'),
+    new_role: fdGet(formData, 'new_role'),
+  })
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة',
+    }
+  }
+
+  const supabase = await createClient()
+  const { error: rpcErr } = await supabase.rpc('change_member_role', {
+    p_membership_id: parsed.data.membership_id,
+    p_new_role: parsed.data.new_role as MembershipRole,
+  })
+
+  if (rpcErr) {
+    const msg = rpcErr.message?.toLowerCase() ?? ''
+    if (msg.includes('cannot demote the last admin')) {
+      return {
+        success: false,
+        error:
+          'لا يُمكن إزالة آخر مدير. رَقِّ عضواً آخر إلى admin أولاً ثم أَعِد المُحاولة.',
+      }
+    }
+    if (msg.includes('access denied')) {
+      return { success: false, error: 'هذه العملية لمدير العمارة فقط' }
+    }
+    if (msg.includes('not found')) {
+      return { success: false, error: 'العضو غير موجود' }
+    }
+    if (msg.includes('inactive membership')) {
+      return { success: false, error: 'العضو غير نَشط — أَعِد تَفعيله أولاً' }
+    }
+    return { success: false, error: 'تَعذَّر تَغيير الدور' }
+  }
+
+  revalidatePath('/team')
+  revalidatePath('/apartments')
+  return { success: true, message: 'تم تَغيير الدور' }
 }

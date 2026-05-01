@@ -125,7 +125,7 @@ export function JoinForm({ rawToken, buildingName, city }: Props) {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <Label htmlFor="apartment_number">رقم شقتك</Label>
               <Input
@@ -134,6 +134,18 @@ export function JoinForm({ rawToken, buildingName, city }: Props) {
                 disabled={isPending}
                 maxLength={30}
                 placeholder="مثلاً: 101"
+              />
+            </div>
+            <div>
+              <Label htmlFor="floor">الدور</Label>
+              <Input
+                id="floor"
+                name="floor"
+                type="number"
+                min={-5}
+                max={200}
+                disabled={isPending}
+                placeholder="مثلاً: 1"
               />
             </div>
             <div>

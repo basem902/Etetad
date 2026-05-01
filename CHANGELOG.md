@@ -8,6 +8,63 @@
 
 ---
 
+## [1.0.0-rc.1+6] — 2026-05-01 — Phase 22: building metadata + role promotion + join floor
+
+> Operator vision: "admin specifies apartments + elevators count, sends invite link with platform benefits, residents register with password+floor, admin verifies + activates and may promote a resident to co-admin." Phase 22 fills the 4 gaps identified vs current state.
+
+### Added
+
+- **`supabase/23_phase22.sql`** (new migration):
+  - `buildings.elevators_count int not null default 0` (with check 0..100).
+  - `pending_apartment_members.requested_floor int` (with check -5..200).
+  - **`change_member_role(p_membership_id, p_new_role)`** RPC — admin promotes/demotes any building member (resident → admin, etc.) while preserving `apartment_members`. Last-admin protection enforced server-side.
+  - **`update_building_metadata(...)`** RPC — admin edits `name`, `address`, `city`, `total_apartments`, `elevators_count`, `default_monthly_fee` after building creation.
+  - `submit_join_request` extended to accept optional `p_floor` (verification info — admin sees during approval).
+
+- **`src/components/team/change-role-dialog.tsx`** — new client component. Dropdown lets admin select new role; warns when promoting to/demoting from admin. Last-admin error from RPC surfaced in Arabic.
+
+- **`src/components/building/building-settings-dialog.tsx`** — new client component. Edit building name + address + apartments + elevators + default fee. Triggered from /apartments header.
+
+- **`src/actions/team.ts`** — `changeMemberRoleAction` wrapper for the RPC.
+
+- **`src/actions/building.ts`** — new file with `updateBuildingMetadataAction`.
+
+### Changed
+
+- **/team page (`src/app/(app)/team/page.tsx`)** — major UX shift: now shows ALL active building memberships (admin + treasurer + committee + resident + technician) instead of just the 3 non-apartment-bound roles. Each row has a `<ChangeRoleDialog>` button; deactivate button kept only for treasurer/committee/technician (admin protected by last-admin rule, resident routed through apartment workflow). Page header copy updated.
+
+- **/join landing page (`src/app/(marketing)/join/[token]/page.tsx`)** — added 6-card benefits grid above the form (transparency, voting, maintenance, payments, suggestions, communication). Each card has a lucide icon + Arabic title + description.
+
+- **`src/components/marketing/join-form.tsx`** — added `<Input id="floor">` field (number, -5..200) between apartment number and phone. Layout shifted from 2-col to 3-col grid for that row.
+
+- **`src/actions/joins.ts`** — `signupSchema` accepts `floor`. `signupAndJoinAction` stores `pending_join_floor` in user_metadata. `finalizeJoinRequestAction` reads it from metadata and passes to RPC.
+
+- **/apartments page header** — added `<BuildingSettingsDialog>` between the join-link share and "add apartment" buttons.
+
+- **`src/types/database.ts`** — added `elevators_count` to `buildings.Row/Insert`, `requested_floor` to `pending_apartment_members.Row/Insert`, new `change_member_role` and `update_building_metadata` RPC types, `submit_join_request.Args.p_floor` optional.
+
+### Tests
+
+- 6 new SQL tests (Phase 22) → **391/391**:
+  - 22.1: admin promotes resident to admin (apartment_members preserved)
+  - 22.2: last-admin protection (cannot demote when only 1 admin)
+  - 22.3: non-admin cannot call change_member_role
+  - 22.4: admin updates building metadata (name + elevators + apartments + fee)
+  - 22.5: non-admin cannot update_building_metadata
+  - 22.6: submit_join_request stores requested_floor
+
+### Lessons (new)
+
+- **#53**: when adding optional parameters to existing RPCs that other callers depend on, use PostgreSQL's `default null` for backwards compatibility. The 9-arg legacy callers (Phase 17/18 tests + admin client) keep working unchanged. New callers opt-in via the 10th arg. Bonus: the RPC body can branch on `p_x is not null` to enable new behavior without breaking old.
+- **#54**: a "team management" page should mirror the data model — ALL members of the building, not a hand-picked subset. The Phase 19 design (only treasurer/committee/technician) leaked the implementation detail of /team's add path into the listing UI. Phase 22 fixes by listing every active membership and letting role-change happen via a generic RPC. The role enum is the source of truth, not the sidebar.
+
+### Non-functional
+- typecheck ✅ / lint ✅ / build ✅ / SW postbuild ✅
+- sql-validate ✅ **391/391**
+- audit ✅ 0 vulnerabilities
+
+---
+
 ## [1.0.0-rc.1+5] — 2026-05-01 — Phase 21: /contact with password upfront + PasswordInput component
 
 > Operator follow-up to Phase 20: extend the password-upfront pattern to `/contact` (trial + enterprise tiers), so EVERY signup form now has the same UX (email + password + wait for super_admin approval). Also adds reusable `PasswordInput` component with show/hide toggle (eye icon) — used in all 7 password fields across the app.

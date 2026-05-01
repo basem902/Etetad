@@ -121,6 +121,14 @@ const signupSchema = z.object({
   password: z.string().min(8).max(72),
   full_name: z.string().min(2).max(120),
   apartment_number: z.string().max(30).optional().or(z.literal('')),
+  // v0.22: floor (الدور) — for admin verification during approval
+  floor: z
+    .union([z.string().regex(/^-?\d+$/), z.literal('')])
+    .optional()
+    .transform((v) => (v && v !== '' ? Number(v) : null))
+    .refine((v) => v === null || (v >= -5 && v <= 200), {
+      message: 'الدور خارج النطاق المسموح',
+    }),
   phone: z.string().max(40).optional().or(z.literal('')),
 })
 
@@ -140,10 +148,14 @@ export async function signupAndJoinAction(
     password: fdGet(formData, 'password') ?? '',
     full_name: fdGet(formData, 'full_name') ?? '',
     apartment_number: fdGet(formData, 'apartment_number') ?? '',
+    floor: fdGet(formData, 'floor') ?? '',
     phone: fdGet(formData, 'phone') ?? '',
   })
   if (!parsed.success) {
-    return { success: false, error: 'البيانات غير صالحة. تَحقَّق وحاول مجدَّداً.' }
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? 'البيانات غير صالحة. تَحقَّق وحاول مجدَّداً.',
+    }
   }
 
   const data = parsed.data
@@ -169,6 +181,7 @@ export async function signupAndJoinAction(
         full_name: data.full_name,
         pending_join_token: data.raw_token,
         pending_join_apartment_number: data.apartment_number || null,
+        pending_join_floor: data.floor,
         pending_join_phone: data.phone || null,
       },
       emailRedirectTo: `${appUrl}/auth/callback?next=/join/finalize`,
@@ -216,6 +229,10 @@ export async function finalizeJoinRequestAction(): Promise<ActionResult> {
     typeof meta?.pending_join_apartment_number === 'string'
       ? meta.pending_join_apartment_number
       : null
+  const floor =
+    typeof meta?.pending_join_floor === 'number'
+      ? meta.pending_join_floor
+      : null
   const phone =
     typeof meta?.pending_join_phone === 'string' ? meta.pending_join_phone : null
   const fullName =
@@ -249,6 +266,7 @@ export async function finalizeJoinRequestAction(): Promise<ActionResult> {
     p_full_name: fullName,
     p_apartment_number: apartmentNumber || null,
     p_phone: phone || null,
+    p_floor: floor,
   })
 
   if (error) {

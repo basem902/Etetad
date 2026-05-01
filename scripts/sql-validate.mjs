@@ -612,6 +612,7 @@ const allFiles = [
   'supabase/20_phase19.sql',
   'supabase/21_phase20.sql',
   'supabase/22_phase21.sql',
+  'supabase/23_phase22.sql',
 ]
 
 log('\n=== Applying SQL files 01→19 (raw output) ===')
@@ -11666,6 +11667,260 @@ try {
 } catch (e) {
   await db2.exec(`set app.current_user_id = '${SUPER_ID}'`).catch(() => {})
   fail(`Phase 20 (20.7) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// =============================================
+// Phase 22 (1.0.0-rc.1+6): change_member_role + update_building_metadata
+// =============================================
+log(`\n=== Phase 22 tests (role change + building metadata + join floor) ===`)
+
+// 22.1 — change_member_role: admin can promote a resident to admin
+try {
+  await db2.exec(`reset role`)
+  await db2.exec(`set app.current_user_id = '${SUPER_ID}'`)
+  // Use existing PHASE19_BLDG (set up earlier in tests) — has PHASE19_ADMIN as admin
+  // Need a resident in that building for testing
+  const residentId = '22222222-cccc-dddd-eeee-aaaa00000001'
+  await db2.exec(`
+    insert into auth.users (id, email) values ('${residentId}'::uuid, 'p22res@test')
+    on conflict (id) do nothing;
+  `)
+  await db2.exec(`
+    insert into public.building_memberships (building_id, user_id, role, is_active)
+    values ('${PHASE19_BLDG}'::uuid, '${residentId}'::uuid, 'resident', true)
+    on conflict (building_id, user_id) do update set role='resident', is_active=true;
+  `)
+  const m = await db2.query(`
+    select id from public.building_memberships
+    where building_id='${PHASE19_BLDG}'::uuid and user_id='${residentId}'::uuid
+  `)
+  const memberId = m.rows[0]?.id
+
+  // PHASE19_ADMIN promotes residentId to admin
+  await db2.exec(`set app.current_user_id = '${PHASE19_ADMIN}'`)
+  await db2.query(`
+    select public.change_member_role('${memberId}'::uuid, 'admin'::public.membership_role)
+  `)
+
+  const verify = await db2.query(`
+    select role::text as role from public.building_memberships where id='${memberId}'::uuid
+  `)
+  if (verify.rows[0]?.role === 'admin') {
+    ok(`Phase 22: change_member_role — admin رَقَّى ساكن إلى admin (apartment_members preserved)`)
+    passed++
+  } else {
+    fail(`Phase 22: role غير صَحيح: ${verify.rows[0]?.role}`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 22 (22.1) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 22.2 — last-admin protection: cannot demote when only 1 admin
+try {
+  // Create a fresh building with only ONE admin
+  await db2.exec(`set app.current_user_id = '${SUPER_ID}'`)
+  const lastAdminBldg = '22222222-eeee-ffff-0000-aaaa00000001'
+  const onlyAdmin = '22222222-eeee-ffff-0000-bbbb00000001'
+  await db2.exec(`
+    insert into auth.users (id, email) values ('${onlyAdmin}'::uuid, 'onlyadmin@test')
+    on conflict (id) do nothing;
+  `)
+  await db2.exec(`
+    insert into public.buildings (id, name, created_by, subscription_plan, subscription_status, subscription_ends_at)
+    values ('${lastAdminBldg}'::uuid, 'Last Admin Bldg', '${SUPER_ID}'::uuid, 'pro', 'active', now() + interval '60 days')
+    on conflict (id) do nothing;
+  `)
+  await db2.exec(`
+    insert into public.building_memberships (building_id, user_id, role, is_active)
+    values ('${lastAdminBldg}'::uuid, '${onlyAdmin}'::uuid, 'admin', true)
+    on conflict (building_id, user_id) do nothing;
+  `)
+  const m = await db2.query(`
+    select id from public.building_memberships
+    where building_id='${lastAdminBldg}'::uuid and user_id='${onlyAdmin}'::uuid
+  `)
+  const memberId = m.rows[0]?.id
+
+  await db2.exec(`set app.current_user_id = '${onlyAdmin}'`)
+  let blocked = false
+  try {
+    await db2.query(`
+      select public.change_member_role('${memberId}'::uuid, 'resident'::public.membership_role)
+    `)
+  } catch (innerE) {
+    if ((innerE.message || '').toLowerCase().includes('cannot demote the last admin')) {
+      blocked = true
+    }
+  }
+  if (blocked) {
+    ok(`Phase 22: change_member_role يَرفض demote آخر admin (last-admin protection)`)
+    passed++
+  } else {
+    fail(`Phase 22: آخر admin تَم demote!`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 22 (22.2) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 22.3 — non-admin cannot call change_member_role
+try {
+  // Use the resident from 22.1 (now admin); need a different non-admin
+  const otherUser = '22222222-cccc-dddd-eeee-aaaa00000002'
+  await db2.exec(`set app.current_user_id = '${SUPER_ID}'`)
+  await db2.exec(`
+    insert into auth.users (id, email) values ('${otherUser}'::uuid, 'p22other@test')
+    on conflict (id) do nothing;
+  `)
+  await db2.exec(`
+    insert into public.building_memberships (building_id, user_id, role, is_active)
+    values ('${PHASE19_BLDG}'::uuid, '${otherUser}'::uuid, 'resident', true)
+    on conflict (building_id, user_id) do nothing;
+  `)
+  const m = await db2.query(`
+    select id from public.building_memberships
+    where building_id='${PHASE19_BLDG}'::uuid and user_id='${otherUser}'::uuid
+  `)
+  const memberId = m.rows[0]?.id
+
+  // Login as this resident and try to change own role
+  await db2.exec(`set app.current_user_id = '${otherUser}'`)
+  let blocked = false
+  try {
+    await db2.query(`
+      select public.change_member_role('${memberId}'::uuid, 'admin'::public.membership_role)
+    `)
+  } catch (innerE) {
+    if ((innerE.message || '').toLowerCase().includes('access denied')) {
+      blocked = true
+    }
+  }
+  if (blocked) {
+    ok(`Phase 22: change_member_role يَرفض non-admin (لا يَستطيع رَفع نَفسه)`)
+    passed++
+  } else {
+    fail(`Phase 22: ساكن استطاع تَرقية نَفسه!`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 22 (22.3) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 22.4 — update_building_metadata: admin updates name + elevators_count
+try {
+  await db2.exec(`set app.current_user_id = '${PHASE19_ADMIN}'`)
+  await db2.query(`
+    select public.update_building_metadata(
+      '${PHASE19_BLDG}'::uuid,
+      'P19 Building Updated',
+      'Address line 1',
+      'الرياض',
+      18,
+      2,
+      450
+    )
+  `)
+  const r = await db2.query(`
+    select name, elevators_count, total_apartments, default_monthly_fee::float as fee
+    from public.buildings where id='${PHASE19_BLDG}'::uuid
+  `)
+  const row = r.rows[0]
+  if (
+    row?.name === 'P19 Building Updated' &&
+    row?.elevators_count === 2 &&
+    row?.total_apartments === 18 &&
+    Math.abs(row?.fee - 450) < 0.01
+  ) {
+    ok(`Phase 22: update_building_metadata — admin حَدَّث name + elevators_count + total_apartments + fee`)
+    passed++
+  } else {
+    fail(`Phase 22: metadata غير صَحيح: ${JSON.stringify(row)}`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 22 (22.4) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 22.5 — non-admin cannot update_building_metadata
+try {
+  const otherUser = '22222222-cccc-dddd-eeee-aaaa00000002'
+  await db2.exec(`set app.current_user_id = '${otherUser}'`)
+  let blocked = false
+  try {
+    await db2.query(`
+      select public.update_building_metadata(
+        '${PHASE19_BLDG}'::uuid, 'Hacked Name', null, null, 0, 0, 0
+      )
+    `)
+  } catch (innerE) {
+    if ((innerE.message || '').toLowerCase().includes('access denied')) {
+      blocked = true
+    }
+  }
+  if (blocked) {
+    ok(`Phase 22: update_building_metadata يَرفض non-admin`)
+    passed++
+  } else {
+    fail(`Phase 22: ساكن غَيَّر metadata العمارة!`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 22 (22.5) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 22.6 — submit_join_request accepts p_floor (verification)
+try {
+  await db2.exec(`reset role`)
+  await db2.exec(`set app.current_user_id = '${SUPER_ID}'`)
+  // Create a fresh user + token for this test
+  const joinUser = '22222222-9999-aaaa-bbbb-cccc00000001'
+  await db2.exec(`
+    insert into auth.users (id, email) values ('${joinUser}'::uuid, 'p22join@test')
+    on conflict (id) do nothing;
+  `)
+  // Need a building + join link — use PHASE19_BLDG and create a link
+  const linkRes = await db2.query(`
+    insert into public.building_join_links (building_id, token_hash, created_by, max_uses)
+    values ('${PHASE19_BLDG}'::uuid, 'p22aaaap22aaaap22aaaap22aaaap22aaaap22aaaap22aaaap22aaaap22aaaa', '${PHASE19_ADMIN}'::uuid, 10)
+    returning id
+  `)
+  const tokenHash = 'p22aaaap22aaaap22aaaap22aaaap22aaaap22aaaap22aaaap22aaaap22aaaa'
+
+  await db2.query(`
+    select public.submit_join_request(
+      '${joinUser}'::uuid,
+      '${tokenHash}',
+      'P22 Join User',
+      '5',
+      '+966500000000',
+      3
+    )
+  `)
+
+  const verify = await db2.query(`
+    select requested_apartment_number, requested_floor
+    from public.pending_apartment_members
+    where user_id='${joinUser}'::uuid and building_id='${PHASE19_BLDG}'::uuid
+  `)
+  if (
+    verify.rows[0]?.requested_apartment_number === '5' &&
+    verify.rows[0]?.requested_floor === 3
+  ) {
+    ok(`Phase 22: submit_join_request يَحفظ requested_floor (3) + requested_apartment_number (5)`)
+    passed++
+  } else {
+    fail(`Phase 22: floor خطأ: ${JSON.stringify(verify.rows[0])}`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 22 (22.6) فشل: ${e.message.slice(0, 150)}`)
   failed++
 }
 

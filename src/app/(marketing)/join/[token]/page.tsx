@@ -1,6 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { AlertCircle } from 'lucide-react'
+import {
+  AlertCircle,
+  ShieldCheck,
+  Vote,
+  Wrench,
+  Receipt,
+  Lightbulb,
+  MessagesSquare,
+} from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { JoinForm } from '@/components/marketing/join-form'
@@ -59,14 +67,88 @@ export default async function JoinPage({ params }: Props) {
     )
   }
 
+  const benefits = [
+    {
+      icon: ShieldCheck,
+      title: 'شفافية كاملة',
+      desc: 'تَرى أين تُصرَف اشتراكاتك بالضبط، والمَبلغ المُتَبَقي.',
+    },
+    {
+      icon: Vote,
+      title: 'حق التَصويت',
+      desc: 'صَوت واحد لكل شَقَّة في القَرارات المُهمَّة. لا تَكرار، لا تَزوير.',
+    },
+    {
+      icon: Wrench,
+      title: 'طَلب صيانة',
+      desc: 'بَلِّغ عَن الأعطال، تَتبَّع حالة الإصلاح حتى الانتهاء.',
+    },
+    {
+      icon: Receipt,
+      title: 'مَدفوعاتك واضحة',
+      desc: 'سَجِل كل المَبالغ المَدفوعة + الإيصالات في مَكان واحد.',
+    },
+    {
+      icon: Lightbulb,
+      title: 'اطرَح اقتراحاتك',
+      desc: 'شارك أَفكارك لتَحسين العمارة، شاركه السكان وصوَّت عليه.',
+    },
+    {
+      icon: MessagesSquare,
+      title: 'تَواصل مُرَتَّب',
+      desc: 'كل رسائل الإدارة في مَكان واحد، بدون مَجموعات WhatsApp فَوضوية.',
+    },
+  ]
+
   return (
     <section className="py-12 md:py-16">
-      <div className="mx-auto max-w-md px-4 md:px-6">
-        <JoinForm
-          rawToken={token}
-          buildingName={result.buildingName}
-          city={result.city}
-        />
+      <div className="mx-auto max-w-3xl px-4 md:px-6 space-y-8">
+        <div className="text-center space-y-2">
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+            انضم إلى {result.buildingName}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            مَنصَّة شَفافة لإدارة عمارتك السَكنية
+          </p>
+        </div>
+
+        {/* Benefits — 6 cards */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+          {benefits.map((b) => {
+            const Icon = b.icon
+            return (
+              <div
+                key={b.title}
+                className="rounded-md border border-border bg-card p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    aria-hidden
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+                  >
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-medium text-sm leading-tight">
+                      {b.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      {b.desc}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="mx-auto max-w-md">
+          <JoinForm
+            rawToken={token}
+            buildingName={result.buildingName}
+            city={result.city}
+          />
+        </div>
       </div>
     </section>
   )

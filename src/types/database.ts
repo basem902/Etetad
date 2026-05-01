@@ -75,6 +75,7 @@ export type Database = {
           city: string | null
           country: string
           total_apartments: number
+          elevators_count: number
           default_monthly_fee: number
           currency: string
           logo_url: string | null
@@ -93,6 +94,7 @@ export type Database = {
           city?: string | null
           country?: string
           total_apartments?: number
+          elevators_count?: number
           default_monthly_fee?: number
           currency?: string
           logo_url?: string | null
@@ -914,6 +916,7 @@ export type Database = {
           user_id: string
           join_link_id: string | null
           requested_apartment_number: string | null
+          requested_floor: number | null
           full_name: string | null
           phone: string | null
           status: PendingMemberStatus
@@ -928,6 +931,7 @@ export type Database = {
           user_id: string
           join_link_id?: string | null
           requested_apartment_number?: string | null
+          requested_floor?: number | null
           full_name?: string | null
           phone?: string | null
           status?: PendingMemberStatus
@@ -1457,6 +1461,7 @@ export type Database = {
         }[]
       }
       // Phase 17 — server-only (service_role): atomic INSERT pending + uses_count++
+      // Phase 22: added p_floor for verification (admin sees during approval)
       submit_join_request: {
         Args: {
           p_user_id: string
@@ -1464,6 +1469,7 @@ export type Database = {
           p_full_name: string
           p_apartment_number: string | null
           p_phone: string | null
+          p_floor?: number | null
         }
         Returns: string
       }
@@ -1695,6 +1701,27 @@ export type Database = {
           is_renewal: boolean
           rejection_reason: string | null
         }[]
+      }
+      // Phase 22 — admin promotes/demotes a building member (preserves apartment_members)
+      change_member_role: {
+        Args: {
+          p_membership_id: string
+          p_new_role: MembershipRole
+        }
+        Returns: void
+      }
+      // Phase 22 — admin edits building metadata (name, address, elevators, etc.)
+      update_building_metadata: {
+        Args: {
+          p_building_id: string
+          p_name: string
+          p_address: string | null
+          p_city: string | null
+          p_total_apartments: number
+          p_elevators_count: number
+          p_default_monthly_fee: number
+        }
+        Returns: void
       }
       // Phase 21 — authenticated user reads their own pending contact requests
       // (option D: /contact also pre-creates auth user + waits for review)

@@ -10,7 +10,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AddTeamMemberDialog } from '@/components/team/add-team-member-dialog'
 import { DeactivateTeamMemberButton } from '@/components/team/deactivate-team-member-button'
-import { ROLE_LABELS_AR } from '@/lib/validations/team'
+import { ChangeRoleDialog } from '@/components/team/change-role-dialog'
+import type { MembershipRole } from '@/types/database'
+
+const ALL_ROLE_LABELS_AR: Record<MembershipRole, string> = {
+  admin: 'مدير العمارة',
+  treasurer: 'أمين الصندوق',
+  committee: 'عضو اللجنة',
+  resident: 'ساكن',
+  technician: 'فني',
+}
 
 export const metadata: Metadata = {
   title: 'فريق العمارة · نظام إدارة العمارة',
@@ -19,7 +28,7 @@ export const metadata: Metadata = {
 type TeamRow = {
   membership_id: string
   user_id: string
-  role: 'treasurer' | 'committee' | 'technician'
+  role: MembershipRole
   is_active: boolean
   created_at: string
   email: string
@@ -60,7 +69,9 @@ export default async function TeamPage() {
     )
     .eq('building_id', buildingId)
     .eq('is_active', true)
-    .in('role', ['treasurer', 'committee', 'technician'])
+    // v0.22: show ALL active memberships (admin/treasurer/committee/resident/technician)
+    // so the building admin can promote a resident to admin (or demote/reassign).
+    // Last-admin protection lives in the change_member_role RPC.
     .order('created_at', { ascending: false })
 
   // Resolve user info via profiles + auth admin (for emails).
@@ -115,15 +126,15 @@ export default async function TeamPage() {
     <div className="space-y-6">
       <PageHeader
         title="فريق العمارة"
-        description="أمين الصندوق، أعضاء اللجان، والفنيون. الأدوار غير المرتبطة بشقة."
+        description="كل أعضاء العمارة وأدوارهم. يَمكنك تَرقية ساكن إلى مدير، تَعيين أمين صندوق، إلخ."
         actions={<AddTeamMemberDialog />}
       />
 
       {teamRows.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="لا يوجد أعضاء فريق بعد"
-          description="ابدأ بإضافة أمين صندوق أو أعضاء اللجنة. سيُرسَل إليهم دعوة إن لم يكونوا مسجَّلين."
+          title="لا يوجد أعضاء بَعد"
+          description="ابدأ بإضافة أعضاء، أو شارك رابط الانضمام مَع السكان من /apartments."
         />
       ) : (
         <Card>
@@ -139,7 +150,17 @@ export default async function TeamPage() {
                       <span className="truncate font-medium">
                         {m.full_name ?? m.email ?? 'عضو غير معروف'}
                       </span>
-                      <Badge variant="secondary">{ROLE_LABELS_AR[m.role]}</Badge>
+                      <Badge
+                        variant={
+                          m.role === 'admin'
+                            ? 'default'
+                            : m.role === 'resident'
+                              ? 'outline'
+                              : 'secondary'
+                        }
+                      >
+                        {ALL_ROLE_LABELS_AR[m.role]}
+                      </Badge>
                     </div>
                     {m.email && (
                       <p
@@ -150,11 +171,25 @@ export default async function TeamPage() {
                       </p>
                     )}
                   </div>
-                  <DeactivateTeamMemberButton
-                    membershipId={m.membership_id}
-                    memberName={m.full_name ?? m.email ?? 'عضو'}
-                    memberEmail={m.email ?? '—'}
-                  />
+                  <div className="flex items-center gap-1">
+                    <ChangeRoleDialog
+                      membershipId={m.membership_id}
+                      memberName={m.full_name ?? m.email ?? 'عضو'}
+                      currentRole={m.role}
+                    />
+                    {/* deactivate only for non-admin and non-resident roles
+                        (admin protected by last-admin rule + super-admin path,
+                        resident protected by Phase 19 P2 #3 — apartment workflow) */}
+                    {(m.role === 'treasurer' ||
+                      m.role === 'committee' ||
+                      m.role === 'technician') && (
+                      <DeactivateTeamMemberButton
+                        membershipId={m.membership_id}
+                        memberName={m.full_name ?? m.email ?? 'عضو'}
+                        memberEmail={m.email ?? '—'}
+                      />
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
