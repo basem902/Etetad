@@ -1,7 +1,14 @@
 import Link from 'next/link'
-import { Building2 } from 'lucide-react'
+import { Building2, Menu, LogIn, Phone, Tag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 /**
  * Header للـ (marketing) routes فقط — مختلف عن AppShell و SuperAdminLayout.
@@ -35,12 +42,37 @@ export function MarketingHeader() {
         </nav>
 
         <div className="flex items-center gap-2 md:hidden">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/pricing">الباقات</Link>
-          </Button>
           <Button size="sm" asChild>
             <Link href="/subscribe?tier=pro&cycle=yearly">ابدأ</Link>
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="القائمة">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/pricing">
+                  <Tag className="h-4 w-4" />
+                  الباقات
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/contact">
+                  <Phone className="h-4 w-4" />
+                  تواصل معنا
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/login">
+                  <LogIn className="h-4 w-4" />
+                  دخول
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="hidden md:block">
