@@ -25,6 +25,9 @@ interface Props {
   initialCity: string | null
   initialTotalApartments: number
   initialElevatorsCount: number
+  /** Kept for the RPC contract but NOT shown in the UI — admin doesn't
+   *  manage building-level fees during setup (per operator decision).
+   *  Existing value is preserved unchanged. */
   initialDefaultMonthlyFee: number
 }
 
@@ -65,7 +68,7 @@ export function BuildingSettingsDialog({
         <DialogHeader>
           <DialogTitle>بيانات العمارة</DialogTitle>
           <DialogDescription>
-            عَدَد الشُقَق + المَصاعد + العنوان + الرسوم الافتراضية.
+            عَدَد الشُقَق + المَصاعد + الاسم + العنوان.
           </DialogDescription>
         </DialogHeader>
 
@@ -87,7 +90,9 @@ export function BuildingSettingsDialog({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="total_apartments">عَدَد الشُقَق</Label>
+              <Label htmlFor="total_apartments">
+                عَدَد الشُقَق <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="total_apartments"
                 name="total_apartments"
@@ -99,7 +104,9 @@ export function BuildingSettingsDialog({
               />
             </div>
             <div>
-              <Label htmlFor="elevators_count">عَدَد المَصاعد</Label>
+              <Label htmlFor="elevators_count">
+                عَدَد المَصاعد <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="elevators_count"
                 name="elevators_count"
@@ -112,23 +119,15 @@ export function BuildingSettingsDialog({
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="default_monthly_fee">
-              الرسوم الشهرية الافتراضية (ر.س)
-            </Label>
-            <Input
-              id="default_monthly_fee"
-              name="default_monthly_fee"
-              type="number"
-              min={0}
-              step="0.01"
-              defaultValue={initialDefaultMonthlyFee}
-              disabled={isPending}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              تُطَبَّق على الشُقَق الجَديدة افتراضياً. يُمكن تَعديلها لكل شَقَّة.
-            </p>
-          </div>
+          {/* Hidden — preserves existing default_monthly_fee value at the RPC
+              layer. The operator chose not to surface fee management at
+              building setup; admin can edit per-apartment fee later if billing
+              is needed. */}
+          <input
+            type="hidden"
+            name="default_monthly_fee"
+            value={initialDefaultMonthlyFee}
+          />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>

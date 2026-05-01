@@ -88,36 +88,30 @@ export function ApartmentForm({ mode, apartmentId, initial }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="monthly_fee">الرسوم الشهرية (ر.س)</Label>
-          <Input
-            id="monthly_fee"
-            name="monthly_fee"
-            type="number"
-            min="0"
-            step="0.01"
-            disabled={isPending}
-            defaultValue={initial?.monthly_fee ?? 0}
-          />
-        </div>
-        <div>
-          <Label htmlFor="status">الحالة</Label>
-          <Select
-            value={status}
-            onValueChange={(v) => setStatus(v as ApartmentStatus)}
-            disabled={isPending}
-          >
-            <SelectTrigger id="status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="vacant">شاغرة</SelectItem>
-              <SelectItem value="occupied">مأهولة</SelectItem>
-              <SelectItem value="under_maintenance">قيد الصيانة</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* monthly_fee preserved at the action level (default 0) but hidden
+          here. Operator decision: fees aren't part of building setup. */}
+      <input
+        type="hidden"
+        name="monthly_fee"
+        value={initial?.monthly_fee ?? 0}
+      />
+
+      <div>
+        <Label htmlFor="status">الحالة</Label>
+        <Select
+          value={status}
+          onValueChange={(v) => setStatus(v as ApartmentStatus)}
+          disabled={isPending}
+        >
+          <SelectTrigger id="status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="vacant">شاغرة</SelectItem>
+            <SelectItem value="occupied">مأهولة</SelectItem>
+            <SelectItem value="under_maintenance">قيد الصيانة</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div>
