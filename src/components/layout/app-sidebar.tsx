@@ -1,3 +1,11 @@
+'use client'
+
+// 'use client' is required because we pass `item.icon` (a Lucide icon
+// function/component) to NavLink (Client). Server→Client boundary forbids
+// non-serializable props (RSC: "Functions cannot be passed directly to
+// Client Components"). Keeping AppSidebar on the client side puts both
+// nav-items.ts imports and NavLink on the same side of the boundary.
+// Same fix as Phase 14's SuperAdminNav extraction (lesson #48).
 import Link from 'next/link'
 import { Building } from 'lucide-react'
 import type { MembershipRole } from '@/types/database'
