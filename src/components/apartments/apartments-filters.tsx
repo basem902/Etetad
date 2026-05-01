@@ -50,7 +50,7 @@ export function ApartmentsFilters() {
           value={status}
           onValueChange={(v) => update({ status: v === 'all' ? null : v })}
         >
-          <SelectTrigger id="filter-status" className="w-[180px]">
+          <SelectTrigger id="filter-status" className="w-full sm:w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -68,7 +68,7 @@ export function ApartmentsFilters() {
           value={occupancy}
           onValueChange={(v) => update({ occupancy: v === 'all' ? null : v })}
         >
-          <SelectTrigger id="filter-occupancy" className="w-[180px]">
+          <SelectTrigger id="filter-occupancy" className="w-full sm:w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -85,7 +85,7 @@ export function ApartmentsFilters() {
           id="filter-floor"
           type="number"
           inputMode="numeric"
-          className="w-[120px]"
+          className="w-full sm:w-[120px]"
           value={floor}
           onChange={(e) => update({ floor: e.target.value })}
           placeholder="مثلاً 2"

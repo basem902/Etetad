@@ -98,7 +98,68 @@ export function RequestsTable({ rows }: Props) {
 
   return (
     <>
-      <Card className="overflow-hidden">
+      {/* Mobile: card stack */}
+      <div className="md:hidden space-y-3">
+        {rows.map((row) => (
+          <Card
+            key={row.id}
+            className="hover:bg-muted/30 transition-colors cursor-pointer"
+            onClick={() => openDialog(row)}
+          >
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-semibold truncate">{row.building_name}</div>
+                  {row.city && (
+                    <div className="text-xs text-muted-foreground truncate">
+                      {row.city}
+                    </div>
+                  )}
+                </div>
+                <Badge
+                  variant={statusVariants[row.status as SubscriptionRequestStatus]}
+                >
+                  {statusLabels[row.status as SubscriptionRequestStatus]}
+                </Badge>
+              </div>
+              <div className="text-sm">
+                <div className="font-medium">{row.full_name}</div>
+                <a
+                  href={`mailto:${row.email}`}
+                  className="text-xs text-muted-foreground hover:underline truncate block"
+                  dir="ltr"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {row.email}
+                </a>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
+                <span>
+                  {row.interested_tier ?? '—'}
+                  {row.estimated_apartments ? ` · ${row.estimated_apartments} شقة` : ''}
+                </span>
+                <span title={formatDateTime(row.created_at)}>
+                  {formatRelative(row.created_at)}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full mt-2"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openDialog(row)
+                }}
+              >
+                مُراجَعة
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <Card className="overflow-hidden hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full min-w-[860px] text-sm">
             <thead className="bg-muted/40 text-muted-foreground">

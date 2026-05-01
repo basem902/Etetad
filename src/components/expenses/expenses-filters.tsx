@@ -63,7 +63,7 @@ export function ExpensesFilters({ vendors = [], categories = [] }: Props) {
       <div className="space-y-1.5">
         <Label htmlFor="filter-status">الحالة</Label>
         <Select value={status} onValueChange={(v) => update({ status: v })}>
-          <SelectTrigger id="filter-status" className="w-[160px]">
+          <SelectTrigger id="filter-status" className="w-full sm:w-[160px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -82,7 +82,7 @@ export function ExpensesFilters({ vendors = [], categories = [] }: Props) {
         <div className="space-y-1.5">
           <Label htmlFor="filter-category">التصنيف</Label>
           <Select value={category} onValueChange={(v) => update({ category: v })}>
-            <SelectTrigger id="filter-category" className="w-[160px]">
+            <SelectTrigger id="filter-category" className="w-full sm:w-[160px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -101,7 +101,7 @@ export function ExpensesFilters({ vendors = [], categories = [] }: Props) {
         <div className="space-y-1.5">
           <Label htmlFor="filter-vendor">المورد</Label>
           <Select value={vendor} onValueChange={(v) => update({ vendor: v })}>
-            <SelectTrigger id="filter-vendor" className="w-[180px]">
+            <SelectTrigger id="filter-vendor" className="w-full sm:w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -121,7 +121,7 @@ export function ExpensesFilters({ vendors = [], categories = [] }: Props) {
         <Input
           id="filter-from"
           type="date"
-          className="w-[150px]"
+          className="w-full sm:w-[150px]"
           value={dateFrom}
           onChange={(e) => update({ from: e.target.value })}
         />
@@ -132,7 +132,7 @@ export function ExpensesFilters({ vendors = [], categories = [] }: Props) {
         <Input
           id="filter-to"
           type="date"
-          className="w-[150px]"
+          className="w-full sm:w-[150px]"
           value={dateTo}
           onChange={(e) => update({ to: e.target.value })}
         />

@@ -60,7 +60,7 @@ export function BuildingsFilters() {
           value={status}
           onValueChange={(v) => update({ status: v === 'all' ? null : v })}
         >
-          <SelectTrigger id="filter-status" className="w-[160px]">
+          <SelectTrigger id="filter-status" className="w-full sm:w-[160px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -80,7 +80,7 @@ export function BuildingsFilters() {
           value={plan}
           onValueChange={(v) => update({ plan: v === 'all' ? null : v })}
         >
-          <SelectTrigger id="filter-plan" className="w-[160px]">
+          <SelectTrigger id="filter-plan" className="w-full sm:w-[160px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -98,7 +98,7 @@ export function BuildingsFilters() {
         <Input
           id="filter-q"
           type="search"
-          className="w-[220px]"
+          className="w-full sm:w-[220px]"
           value={q}
           onChange={(e) => update({ q: e.target.value })}
           placeholder="مثلاً: عمارة الرياض"

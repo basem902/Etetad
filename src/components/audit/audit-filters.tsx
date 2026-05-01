@@ -80,7 +80,7 @@ export function AuditFilters({ entityTypes, actors }: Props) {
       <div className="space-y-1.5">
         <Label htmlFor="filter-entity">الجدول</Label>
         <Select value={entity} onValueChange={(v) => update({ entity: v })}>
-          <SelectTrigger id="filter-entity" className="w-[180px]">
+          <SelectTrigger id="filter-entity" className="w-full sm:w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -97,7 +97,7 @@ export function AuditFilters({ entityTypes, actors }: Props) {
       <div className="space-y-1.5">
         <Label htmlFor="filter-action">العملية</Label>
         <Select value={action} onValueChange={(v) => update({ action: v })}>
-          <SelectTrigger id="filter-action" className="w-[140px]">
+          <SelectTrigger id="filter-action" className="w-full sm:w-[140px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -113,7 +113,7 @@ export function AuditFilters({ entityTypes, actors }: Props) {
         <div className="space-y-1.5">
           <Label htmlFor="filter-actor">المُنفِّذ</Label>
           <Select value={actor} onValueChange={(v) => update({ actor: v })}>
-            <SelectTrigger id="filter-actor" className="w-[200px]">
+            <SelectTrigger id="filter-actor" className="w-full sm:w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -133,7 +133,7 @@ export function AuditFilters({ entityTypes, actors }: Props) {
         <Input
           id="filter-from"
           type="date"
-          className="w-[150px]"
+          className="w-full sm:w-[150px]"
           value={dateFrom}
           onChange={(e) => update({ from: e.target.value })}
         />
@@ -144,7 +144,7 @@ export function AuditFilters({ entityTypes, actors }: Props) {
         <Input
           id="filter-to"
           type="date"
-          className="w-[150px]"
+          className="w-full sm:w-[150px]"
           value={dateTo}
           onChange={(e) => update({ to: e.target.value })}
         />

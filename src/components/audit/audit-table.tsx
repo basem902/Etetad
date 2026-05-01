@@ -59,7 +59,43 @@ export function AuditTable({
 
   return (
     <div className="space-y-3">
-      <Card className="overflow-hidden">
+      {/* Mobile: card stack */}
+      <div className="md:hidden space-y-3">
+        {rows.map((r) => {
+          const cfg = ACTION_CFG[r.action] ?? {
+            label: r.action,
+            variant: 'secondary' as const,
+          }
+          return (
+            <Card key={r.id}>
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDateTime(r.created_at)}
+                  </span>
+                </div>
+                <div className="text-sm">
+                  <EntityLink entityType={r.entity_type} entityId={r.entity_id} />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  بِواسطة:{' '}
+                  {r.actor_name ?? <span>نظام</span>}
+                </div>
+                <div className="pt-2 border-t border-border overflow-x-auto">
+                  <DiffViewer
+                    oldValues={r.old_values}
+                    newValues={r.new_values}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <Card className="overflow-hidden hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-muted/40 text-muted-foreground text-xs">

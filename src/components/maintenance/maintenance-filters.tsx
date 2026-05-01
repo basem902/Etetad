@@ -63,7 +63,7 @@ export function MaintenanceFilters({
       <div className="space-y-1.5">
         <Label htmlFor="filter-status">الحالة</Label>
         <Select value={status} onValueChange={(v) => update({ status: v })}>
-          <SelectTrigger id="filter-status" className="w-[160px]">
+          <SelectTrigger id="filter-status" className="w-full sm:w-[160px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -83,7 +83,7 @@ export function MaintenanceFilters({
       <div className="space-y-1.5">
         <Label htmlFor="filter-priority">الأولوية</Label>
         <Select value={priority} onValueChange={(v) => update({ priority: v })}>
-          <SelectTrigger id="filter-priority" className="w-[140px]">
+          <SelectTrigger id="filter-priority" className="w-full sm:w-[140px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -99,7 +99,7 @@ export function MaintenanceFilters({
       <div className="space-y-1.5">
         <Label htmlFor="filter-location">الموقع</Label>
         <Select value={location} onValueChange={(v) => update({ location: v })}>
-          <SelectTrigger id="filter-location" className="w-[150px]">
+          <SelectTrigger id="filter-location" className="w-full sm:w-[150px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -118,7 +118,7 @@ export function MaintenanceFilters({
         <div className="space-y-1.5">
           <Label htmlFor="filter-assignee">الفني</Label>
           <Select value={assignee} onValueChange={(v) => update({ assignee: v })}>
-            <SelectTrigger id="filter-assignee" className="w-[180px]">
+            <SelectTrigger id="filter-assignee" className="w-full sm:w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

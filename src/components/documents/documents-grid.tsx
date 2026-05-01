@@ -56,7 +56,7 @@ export function DocumentsGrid({ documents, categories, canManage }: Props) {
         )}
         aria-busy={isPending}
       >
-        <div className="space-y-1.5 flex-1 min-w-[180px]">
+        <div className="space-y-1.5 flex-1 min-w-full sm:w-[180px]">
           <Label htmlFor="filter-q">بحث</Label>
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -75,7 +75,7 @@ export function DocumentsGrid({ documents, categories, canManage }: Props) {
           <div className="space-y-1.5">
             <Label htmlFor="filter-category">التصنيف</Label>
             <Select value={category} onValueChange={(v) => update({ category: v })}>
-              <SelectTrigger id="filter-category" className="w-[180px]">
+              <SelectTrigger id="filter-category" className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

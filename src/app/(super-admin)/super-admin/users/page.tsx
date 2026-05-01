@@ -65,9 +65,55 @@ export default async function SuperAdminUsersPage({
           description="جرّب بحثاً آخر."
         />
       ) : (
-        <Card className="overflow-hidden">
-          <CardContent className="p-0 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+        <>
+          {/* Mobile: card stack */}
+          <div className="md:hidden space-y-3">
+            {users.map((u) => (
+              <Card key={u.id}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">
+                        {u.full_name ?? (
+                          <span className="text-muted-foreground">— بدون اسم —</span>
+                        )}
+                      </div>
+                      {u.phone && (
+                        <div
+                          className="text-xs text-muted-foreground truncate"
+                          dir="ltr"
+                        >
+                          {u.phone}
+                        </div>
+                      )}
+                    </div>
+                    {u.is_super_admin && (
+                      <span className="inline-flex items-center gap-1 text-xs text-primary shrink-0">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        super_admin
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Badge
+                        variant={u.buildings_count > 0 ? 'default' : 'secondary'}
+                      >
+                        {u.buildings_count}
+                      </Badge>
+                      عمارات
+                    </span>
+                    <span>انضَم {formatDate(u.created_at)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <Card className="overflow-hidden hidden md:block">
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-muted/40 text-muted-foreground">
                 <tr>
                   <th className="h-10 px-3 text-right font-medium align-middle">الاسم</th>
@@ -113,6 +159,7 @@ export default async function SuperAdminUsersPage({
             </table>
           </CardContent>
         </Card>
+        </>
       )}
     </div>
   )

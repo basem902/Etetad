@@ -61,7 +61,7 @@ export function VendorsGrid({ vendors, specialties }: Props) {
               value={specialty}
               onValueChange={(v) => update({ specialty: v })}
             >
-              <SelectTrigger id="filter-specialty" className="w-[180px]">
+              <SelectTrigger id="filter-specialty" className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
