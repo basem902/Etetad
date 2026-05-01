@@ -130,11 +130,20 @@ export async function createSubscriptionOrderAction(
   })
 
   if (createErr || !createdUser?.user) {
+    // Diagnostic: surface real error to terminal logs so we can identify
+    // root cause when the generic Arabic toast hides the underlying issue.
+    console.error('[subscribe] createUser failed:', {
+      email: data.email,
+      message: createErr?.message,
+      status: createErr?.status,
+      code: (createErr as { code?: string } | null)?.code,
+    })
     const msg = createErr?.message?.toLowerCase() ?? ''
     if (
       msg.includes('already') ||
       msg.includes('exists') ||
-      msg.includes('duplicate')
+      msg.includes('duplicate') ||
+      msg.includes('registered')
     ) {
       return {
         success: false,
@@ -142,7 +151,22 @@ export async function createSubscriptionOrderAction(
           'هذا البَريد مُسَجَّل سابقاً. سَجِّل الدخول من /login، أو استَخدم بَريداً مُختلفاً.',
       }
     }
-    return { success: false, error: 'تَعذَّر إنشاء الحساب. حاول مجدَّداً.' }
+    if (msg.includes('password')) {
+      return {
+        success: false,
+        error: 'كلمة المرور غير صالحة. استَخدم 8 أحرف على الأقل.',
+      }
+    }
+    if (msg.includes('rate') || msg.includes('limit')) {
+      return {
+        success: false,
+        error: 'محاولات كثيرة. حاول لاحقاً.',
+      }
+    }
+    return {
+      success: false,
+      error: `تَعذَّر إنشاء الحساب: ${createErr?.message ?? 'سبب غير مَعروف'}`,
+    }
   }
   const userId = createdUser.user.id
 

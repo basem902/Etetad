@@ -92,10 +92,17 @@ export function OrderReviewCard({ order, receiptSignedUrl }: Props) {
     })
   }
 
-  const canApprove = order.status === 'awaiting_review'
+  // v0.23: super_admin can skip the customer's receipt-upload step and
+  // approve/reject directly from awaiting_payment. The order goes straight
+  // to provisioning without ever sitting in awaiting_review.
+  const canApprove =
+    order.status === 'awaiting_payment' || order.status === 'awaiting_review'
   const canReject =
-    order.status === 'awaiting_review' || order.status === 'provisioning_failed'
+    order.status === 'awaiting_payment' ||
+    order.status === 'awaiting_review' ||
+    order.status === 'provisioning_failed'
   const canRetry = order.status === 'provisioning_failed'
+  const isSkipReceipt = order.status === 'awaiting_payment'
 
   return (
     <div className="space-y-4">
@@ -143,14 +150,22 @@ export function OrderReviewCard({ order, receiptSignedUrl }: Props) {
             )}
             {canApprove && (
               <ConfirmDialog
-                title="اعتماد الطلب وتَفعيل الاشتراك"
-                description="سَنُرسل دعوة Supabase للعميل + نُنشئ العمارة + نَربط حسابه كـ admin. هذه عملية ذرّية — لو فَشل أي جزء، الـ order يَنتقل لـ provisioning_failed."
-                confirmLabel="اعتماد"
+                title={
+                  isSkipReceipt
+                    ? 'اعتماد بدون إيصال + تَفعيل الاشتراك'
+                    : 'اعتماد الطلب وتَفعيل الاشتراك'
+                }
+                description={
+                  isSkipReceipt
+                    ? 'لا يوجد إيصال تَحويل مَرفوع لهذا الطلب. تَأكد أن الدَفع وَصَل قَبل المُتابَعة. سَنُنشئ العمارة + نَربط حساب العَميل كـ admin مُباشَرة.'
+                    : 'سَنُنشئ العمارة + نَربط حساب العَميل كـ admin. هذه عملية ذرّية — لو فَشل أي جزء، الـ order يَنتقل لـ provisioning_failed.'
+                }
+                confirmLabel={isSkipReceipt ? 'اعتماد بدون إيصال' : 'اعتماد'}
                 onConfirm={handleApprove}
                 trigger={
                   <Button size="sm" disabled={isPending}>
                     <CheckCircle2 className="h-4 w-4" />
-                    اعتماد + تَفعيل
+                    {isSkipReceipt ? 'تَأكيد الدَفع + تَفعيل' : 'اعتماد + تَفعيل'}
                   </Button>
                 }
               />

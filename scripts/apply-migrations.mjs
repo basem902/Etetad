@@ -80,6 +80,11 @@ const FILES = [
   '18_phase17.sql',
   '19_phase18.sql',
   '20_phase19.sql',
+  '21_phase20.sql',
+  '22_phase21.sql',
+  '23_phase22.sql',
+  '24_skip_receipt.sql',
+  '25_building_setup.sql',
 ]
 
 const client = new Client({

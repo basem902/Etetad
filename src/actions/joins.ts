@@ -192,15 +192,27 @@ export async function signupAndJoinAction(
   })
 
   if (createErr || !createdUser?.user) {
+    console.error('[join] createUser failed:', {
+      email: data.email,
+      message: createErr?.message,
+      status: createErr?.status,
+      code: (createErr as { code?: string } | null)?.code,
+    })
     const msg = createErr?.message?.toLowerCase() ?? ''
-    if (msg.includes('already') || msg.includes('exists')) {
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('registered')) {
       return {
         success: false,
         error:
           'هذا البريد مُسجَّل سابقاً. سجِّل دخولك أولاً، ثم زُر الرابط مرة أخرى.',
       }
     }
-    return { success: false, error: 'تَعذَّر إنشاء الحساب. حاول مجدَّداً.' }
+    if (msg.includes('password')) {
+      return { success: false, error: 'كلمة المرور غير صالحة. استَخدم 8 أحرف على الأقل.' }
+    }
+    return {
+      success: false,
+      error: `تَعذَّر إنشاء الحساب: ${createErr?.message ?? 'سبب غير مَعروف'}`,
+    }
   }
   const userId = createdUser.user.id
 

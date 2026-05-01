@@ -76,6 +76,7 @@ export type Database = {
           country: string
           total_apartments: number
           elevators_count: number
+          floors_count: number
           default_monthly_fee: number
           currency: string
           logo_url: string | null
@@ -83,6 +84,7 @@ export type Database = {
           subscription_status: SubscriptionStatus
           trial_ends_at: string | null
           subscription_ends_at: string | null
+          setup_completed_at: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -95,6 +97,7 @@ export type Database = {
           country?: string
           total_apartments?: number
           elevators_count?: number
+          floors_count?: number
           default_monthly_fee?: number
           currency?: string
           logo_url?: string | null
@@ -102,6 +105,7 @@ export type Database = {
           subscription_status?: SubscriptionStatus
           trial_ends_at?: string | null
           subscription_ends_at?: string | null
+          setup_completed_at?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -113,6 +117,8 @@ export type Database = {
           city?: string | null
           country?: string
           total_apartments?: number
+          elevators_count?: number
+          floors_count?: number
           default_monthly_fee?: number
           currency?: string
           logo_url?: string | null
@@ -120,6 +126,7 @@ export type Database = {
           subscription_status?: SubscriptionStatus
           trial_ends_at?: string | null
           subscription_ends_at?: string | null
+          setup_completed_at?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -1720,6 +1727,17 @@ export type Database = {
           p_total_apartments: number
           p_elevators_count: number
           p_default_monthly_fee: number
+        }
+        Returns: void
+      }
+      // v0.23 — first-login wizard for new building admins
+      complete_building_setup: {
+        Args: {
+          p_building_id: string
+          p_name: string
+          p_floors_count: number
+          p_total_apartments: number
+          p_elevators_count: number
         }
         Returns: void
       }

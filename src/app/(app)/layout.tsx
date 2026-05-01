@@ -73,6 +73,21 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const activeBuildingName = active.buildings?.name ?? null
   const role = active.role
 
+  // First-login wizard gate (v0.23): freshly-provisioned admin buildings
+  // have setup_completed_at IS NULL. Force the admin through /onboarding/setup
+  // to collect floors_count + apartments + elevators + auto-create rows.
+  // super_admin bypassed earlier; pending users handled in the buildings===0 branch.
+  if (role === 'admin') {
+    const { data: setupRow } = await supabase
+      .from('buildings')
+      .select('setup_completed_at')
+      .eq('id', active.building_id)
+      .maybeSingle()
+    if (setupRow && setupRow.setup_completed_at == null) {
+      redirect('/onboarding/setup')
+    }
+  }
+
   // Phase 14: defense-in-depth subscription gate.
   //   Middleware already rewrites expired/cancelled buildings to
   //   /subscription-inactive, but a request that bypasses middleware (e.g.

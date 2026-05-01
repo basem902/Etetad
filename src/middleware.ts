@@ -53,6 +53,13 @@ export async function middleware(request: NextRequest) {
     pathname === '/sitemap.xml' ||
     pathname === '/robots.txt' ||
     pathname === '/manifest.webmanifest' ||
+    // Phase 18: /subscribe and /subscribe/[id] are public landing pages.
+    // Anon visitors fill the form (subscribe form) or upload a receipt
+    // (subscribe/[id] with token in query). The renew=true variant
+    // requires auth, but the page itself enforces that internally —
+    // middleware just lets it through.
+    pathname === '/subscribe' ||
+    pathname.startsWith('/subscribe/') ||
     pathname.startsWith('/join/') ||
     pathname.startsWith('/auth/callback') ||
     pathname.startsWith('/api/public/')
