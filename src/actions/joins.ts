@@ -168,29 +168,31 @@ export async function signupAndJoinAction(
   }
 
   const supabase = await createClient()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
-  // signUp with metadata carrying the join context. The `pending_join_*`
-  // fields land in user_metadata, readable by /join/finalize after the
-  // email confirmation lands in /auth/callback.
-  const { error } = await supabase.auth.signUp({
+  // v0.22.1: skip email confirmation entirely. Same pattern as Phase 20
+  // (/subscribe) and Phase 21 (/contact) — admin.createUser with
+  // email_confirm:true, then signInWithPassword to seed the session, then
+  // submit_join_request directly. Operator decision: residents shouldn't
+  // need a 3-email dance to register; their account is gated by admin
+  // approval anyway (pending_apartment_members → admin reviews).
+  //
+  // Trade-off: we no longer verify the resident actually owns the email
+  // address. Mitigations: (a) admin verifies all data during approval at
+  // /apartments/pending, (b) wrong email = locked-out account anyway since
+  // password reset would fail, (c) rate limit (5/IP/hour) still in place.
+
+  // (1) Pre-create auth user with email_confirm:true
+  const { getAuthAdmin } = await import('@/lib/supabase/auth-admin')
+  const authAdmin = getAuthAdmin()
+  const { data: createdUser, error: createErr } = await authAdmin.createUser({
     email: data.email,
     password: data.password,
-    options: {
-      data: {
-        full_name: data.full_name,
-        pending_join_token: data.raw_token,
-        pending_join_apartment_number: data.apartment_number || null,
-        pending_join_floor: data.floor,
-        pending_join_phone: data.phone || null,
-      },
-      emailRedirectTo: `${appUrl}/auth/callback?next=/join/finalize`,
-    },
+    email_confirm: true,
+    user_metadata: { full_name: data.full_name },
   })
 
-  if (error) {
-    // Most common: "User already registered" — guide them to login + share with admin
-    const msg = error.message.toLowerCase()
+  if (createErr || !createdUser?.user) {
+    const msg = createErr?.message?.toLowerCase() ?? ''
     if (msg.includes('already') || msg.includes('exists')) {
       return {
         success: false,
@@ -200,11 +202,73 @@ export async function signupAndJoinAction(
     }
     return { success: false, error: 'تَعذَّر إنشاء الحساب. حاول مجدَّداً.' }
   }
+  const userId = createdUser.user.id
+
+  // (2) Sign in immediately so the user has a session cookie
+  const { error: signInErr } = await supabase.auth.signInWithPassword({
+    email: data.email,
+    password: data.password,
+  })
+  if (signInErr) {
+    // Cleanup orphan auth user (email created but never useful)
+    try {
+      await authAdmin.deleteUser(userId)
+    } catch {
+      // last-resort
+    }
+    return { success: false, error: 'تَعذَّر تَسجيل الدخول. حاول مجدَّداً.' }
+  }
+
+  // (3) Submit join request via admin RPC — we already have userId, no need
+  // to round-trip through user_metadata + /join/finalize.
+  let admin: ReturnType<typeof createAdminClient>
+  try {
+    admin = createAdminClient()
+  } catch {
+    return {
+      success: false,
+      error: 'الخدمة غير مُكوَّنة بشكل صحيح. تواصل مع الإدارة.',
+    }
+  }
+
+  const tokenHash = hashToken(data.raw_token)
+  const { error: rpcErr } = await admin.rpc('submit_join_request', {
+    p_user_id: userId,
+    p_token_hash: tokenHash,
+    p_full_name: data.full_name,
+    p_apartment_number: data.apartment_number || null,
+    p_phone: data.phone || null,
+    p_floor: data.floor,
+  })
+
+  if (rpcErr) {
+    // RPC failure → cleanup orphan auth user (matches /subscribe pattern)
+    try {
+      await authAdmin.deleteUser(userId)
+    } catch {
+      // last-resort
+    }
+    const msg = rpcErr.message?.toLowerCase() ?? ''
+    if (msg.includes('duplicate') || msg.includes('unique')) {
+      return {
+        success: false,
+        error:
+          'لديك طَلب انضمام سابق لهذه العمارة. تَواصل مع الإدارة لو لم يُفَعَّل.',
+      }
+    }
+    if (msg.includes('token disabled') || msg.includes('expired') || msg.includes('max uses')) {
+      return {
+        success: false,
+        error: 'انتَهت صَلاحية رابط الدَعوة. اطلب من الإدارة رابطاً جَديداً.',
+      }
+    }
+    return { success: false, error: 'تَعذَّر إرسال طَلب الانضمام. حاول مجدَّداً.' }
+  }
 
   return {
     success: true,
     message:
-      'أرسلنا رابط تأكيد على بريدك. اضغطه لإكمال التسجيل، ثم انتظر تَفعيل إدارة العمارة.',
+      'تم إنشاء حسابك وإرسال طَلب الانضمام. بانتظار اعتماد إدارة العمارة.',
   }
 }
 

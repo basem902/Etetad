@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Building2, CheckCircle2 } from 'lucide-react'
+import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,47 +19,28 @@ interface Props {
 
 /**
  * Anon visitor signup form on /join/[token].
- * After submission, Supabase sends a confirmation email; the user clicks
- * the link → /auth/callback → /join/finalize → submit_join_request RPC.
+ *
+ * v0.22.1: skip email confirmation. Action creates auth user (auto-confirmed),
+ * signs them in, submits the pending request, then the form redirects to
+ * /account/pending. No email click, no /join/finalize round-trip.
  */
 export function JoinForm({ rawToken, buildingName, city }: Props) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [submitted, setSubmitted] = useState(false)
 
   function onSubmit(formData: FormData) {
     formData.set('raw_token', rawToken)
     startTransition(async () => {
       const result = await signupAndJoinAction(formData)
       if (result.success) {
-        setSubmitted(true)
-        toast.success(result.message ?? 'تم — افحص بريدك.')
+        toast.success(result.message ?? 'تم إرسال طَلبك.')
+        // User is now signed in + has a pending row. /account/pending
+        // resolves what to show (resident pending join request).
+        router.replace('/account/pending')
       } else {
         toast.error(result.error)
       }
     })
-  }
-
-  if (submitted) {
-    return (
-      <Card>
-        <CardContent className="pt-8 pb-10 text-center">
-          <div
-            aria-hidden
-            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-success/10 text-success"
-          >
-            <CheckCircle2 className="h-7 w-7" />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">افحص بريدك</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-            أرسلنا رابط تأكيد. اضغطه لإكمال إنشاء حسابك. بعدها، طلبك يَنتظر
-            مُوافقة إدارة العمارة (عادةً خلال 24 ساعة).
-          </p>
-          <p className="text-xs text-muted-foreground mt-4">
-            لم يَصل البريد؟ افحص spam folder أو اطلب من الإدارة إعادة الإرسال.
-          </p>
-        </CardContent>
-      </Card>
-    )
   }
 
   return (
