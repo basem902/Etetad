@@ -35,13 +35,26 @@ export async function getActiveBuildingId(): Promise<string | null> {
 }
 
 export async function setActiveBuildingId(buildingId: string) {
-  const c = await cookies()
-  c.set(COOKIE_NAME, buildingId, COOKIE_OPTIONS)
+  // Next.js 15 forbids cookies().set() inside Server Components.
+  // We MAY be called from a Server Component (e.g. AppLayout's
+  // ensureActiveBuilding fallback). Swallow the error — middleware also
+  // sets this cookie on every authenticated request when it's missing,
+  // so the next request will be consistent.
+  try {
+    const c = await cookies()
+    c.set(COOKIE_NAME, buildingId, COOKIE_OPTIONS)
+  } catch {
+    // ignored — middleware will sync on next request
+  }
 }
 
 export async function clearActiveBuildingId() {
-  const c = await cookies()
-  c.delete(COOKIE_NAME)
+  try {
+    const c = await cookies()
+    c.delete(COOKIE_NAME)
+  } catch {
+    // ignored — middleware will sync on next request
+  }
 }
 
 /**

@@ -144,8 +144,68 @@ export async function middleware(request: NextRequest) {
       .maybeSingle()
 
     if (!profile?.is_super_admin) {
-      const activeBuildingId = request.cookies.get(ACTIVE_BUILDING_COOKIE)?.value
+      let activeBuildingId = request.cookies.get(ACTIVE_BUILDING_COOKIE)?.value
       let cookieIsInactive = false
+
+      // v0.23: cookie missing → pre-set it here so Server Components don't
+      // try to mutate cookies (Next.js 15 forbids c.set() inside Server
+      // Components, only Server Actions/Route Handlers/middleware can write).
+      // Without this, a freshly-logged-in user with a valid membership but no
+      // cookie crashes /dashboard with "Cookies can only be modified...".
+      if (!activeBuildingId) {
+        const { data: memberships } = await supabase
+          .from('building_memberships')
+          .select('building_id, role')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true })
+
+        if (memberships && memberships.length > 0) {
+          const ids = memberships.map((m) => m.building_id)
+          const { data: buildings } = await supabase
+            .from('buildings')
+            .select('id, subscription_status')
+            .in('id', ids)
+
+          const activeSet = new Set(
+            (buildings ?? [])
+              .filter(
+                (b) =>
+                  b.subscription_status !== 'expired' &&
+                  b.subscription_status !== 'cancelled',
+              )
+              .map((b) => b.id),
+          )
+
+          const requiresAdmin = startsWithAny(pathname, ADMIN_ONLY_PREFIXES)
+
+          let chosen: string | undefined
+          if (requiresAdmin) {
+            chosen = memberships.find(
+              (m) => activeSet.has(m.building_id) && m.role === 'admin',
+            )?.building_id
+          }
+          chosen ??= memberships.find((m) => activeSet.has(m.building_id))
+            ?.building_id
+          chosen ??= memberships[0]?.building_id
+
+          if (chosen) {
+            request.cookies.set(ACTIVE_BUILDING_COOKIE, chosen)
+            cookiesToSync.push({
+              name: ACTIVE_BUILDING_COOKIE,
+              value: chosen,
+              options: {
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 60 * 60 * 24 * 365,
+              },
+            })
+            activeBuildingId = chosen
+          }
+        }
+      }
 
       if (activeBuildingId) {
         const { data: building } = await supabase
