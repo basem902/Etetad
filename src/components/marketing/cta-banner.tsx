@@ -13,12 +13,12 @@ export function CtaBanner() {
           جاهز لرقمنة إدارة عمارتك؟
         </h2>
         <p className="mt-4 text-lg text-muted-foreground">
-          ابدأ تَجربتك المجانية اليوم. لا حاجة لبطاقة ائتمان.
+          ابدأ اشتراكك اليوم. تَفعيل خلال ساعات بعد التَحويل البَنكي.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button size="lg" asChild>
-            <Link href="/register">
-              ابدأ مجاناً
+            <Link href="/subscribe?tier=pro&cycle=yearly">
+              ابدأ اشتراكك
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>

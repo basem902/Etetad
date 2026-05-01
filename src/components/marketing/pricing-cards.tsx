@@ -142,8 +142,8 @@ export function PricingCards({ tiers }: Props) {
                   className="w-full"
                 >
                   {/*
-                    Phase 18: bank-transfer subscription flow.
-                    - trial → /register (self-service signup)
+                    Phase 19+ ops decision: approval-only onboarding.
+                    - trial → /contact (request via super_admin — no self-service)
                     - enterprise → /contact (custom pricing discussion)
                     - basic/pro → /subscribe?tier=X&cycle=Y (bank-transfer order)
                   */}
@@ -152,12 +152,12 @@ export function PricingCards({ tiers }: Props) {
                       showAsContact
                         ? `/contact?tier=${tier.id}`
                         : tier.id === 'trial'
-                          ? '/register'
+                          ? '/contact?tier=trial'
                           : `/subscribe?tier=${tier.id}&cycle=${cycle}`
                     }
                   >
                     {tier.id === 'trial'
-                      ? 'ابدأ التجربة'
+                      ? 'اطلب التَجربة'
                       : showAsContact
                         ? 'تواصل معنا'
                         : 'اشترك الآن'}

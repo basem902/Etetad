@@ -43,6 +43,13 @@ const createOrderSchema = z.object({
   full_name: z.string().min(2).max(120),
   email: z.string().email().max(254),
   phone: z.string().min(5).max(40),
+  // v0.20: password upfront. Supabase enforces 6+ by default; we require 8+
+  // for safety. The user logs in with these credentials AFTER super_admin
+  // approves the order (account exists but stuck on /account/pending).
+  password: z
+    .string()
+    .min(8, 'كلمة المرور يَجب أن تَكون 8 أحرف على الأقل')
+    .max(72, 'كلمة المرور طويلة جداً'),
   building_name: z.string().min(2).max(200),
   city: z.string().max(80).optional().or(z.literal('')),
   estimated_apartments: z
@@ -72,6 +79,7 @@ export async function createSubscriptionOrderAction(
     full_name: fdGet(formData, 'full_name') ?? '',
     email: fdGet(formData, 'email') ?? '',
     phone: fdGet(formData, 'phone') ?? '',
+    password: fdGet(formData, 'password') ?? '',
     building_name: fdGet(formData, 'building_name') ?? '',
     city: fdGet(formData, 'city') ?? '',
     estimated_apartments: fdGet(formData, 'estimated_apartments') ?? '',
@@ -79,7 +87,10 @@ export async function createSubscriptionOrderAction(
     cycle: fdGet(formData, 'cycle') ?? '',
   })
   if (!parsed.success) {
-    return { success: false, error: 'البيانات غير صالحة. تَحقَّق وحاول مجدَّداً.' }
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? 'البيانات غير صالحة. تَحقَّق وحاول مجدَّداً.',
+    }
   }
 
   const data = parsed.data
@@ -95,7 +106,47 @@ export async function createSubscriptionOrderAction(
     }
   }
 
-  // (4) generate token + hash + RPC
+  // (3.5) v0.20: pre-create auth user with the chosen password.
+  // Email is auto-confirmed (email_confirm:true) so the user can login
+  // immediately, but they have no membership → middleware redirects them to
+  // /account/pending until super_admin approves. This replaces the old
+  // "invite-on-approval" flow that required a 3-email dance (order email +
+  // Supabase invite + password reset).
+  //
+  // If the email is already taken (existing user), we surface a clear Arabic
+  // error. We do NOT auto-link to the existing account — the operator should
+  // resolve manually (the existing account may belong to a different person
+  // who happens to share that email).
+  const { getAuthAdmin } = await import('@/lib/supabase/auth-admin')
+  const authAdmin = getAuthAdmin()
+  const { data: createdUser, error: createErr } = await authAdmin.createUser({
+    email: data.email,
+    password: data.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: data.full_name,
+      phone: data.phone,
+    },
+  })
+
+  if (createErr || !createdUser?.user) {
+    const msg = createErr?.message?.toLowerCase() ?? ''
+    if (
+      msg.includes('already') ||
+      msg.includes('exists') ||
+      msg.includes('duplicate')
+    ) {
+      return {
+        success: false,
+        error:
+          'هذا البَريد مُسَجَّل سابقاً. سَجِّل الدخول من /login، أو استَخدم بَريداً مُختلفاً.',
+      }
+    }
+    return { success: false, error: 'تَعذَّر إنشاء الحساب. حاول مجدَّداً.' }
+  }
+  const userId = createdUser.user.id
+
+  // (4) generate token + hash + RPC (with pre-created user_id)
   const rawToken = generateRawToken()
   const tokenHash = hashToken(rawToken)
 
@@ -109,9 +160,17 @@ export async function createSubscriptionOrderAction(
     p_tier_id: data.tier_id,
     p_cycle: data.cycle,
     p_token_hash: tokenHash,
+    p_user_id: userId,
   })
 
   if (rpcErr || !result || result.length === 0) {
+    // RPC failed AFTER auth user was created → orphan account. Best-effort
+    // cleanup (delete the auth user) so the email is reusable.
+    try {
+      await authAdmin.deleteUser(userId)
+    } catch {
+      // last-resort
+    }
     return { success: false, error: 'تَعذَّر إنشاء الطلب. حاول مجدَّداً.' }
   }
 
@@ -514,38 +573,54 @@ export async function approveOrderAction(formData: FormData): Promise<ActionResu
     }
   }
 
-  // Step 2: Invite via admin (outside DB) — new orders only
-  const { getAuthAdmin } = await import('@/lib/supabase/auth-admin')
+  // Step 2: Resolve user_id.
+  //
+  // v0.20: orders created via the new /subscribe flow (with password upfront)
+  // already have provisioned_user_id set at order creation. We skip the
+  // Supabase auth.admin.inviteUserByEmail step entirely — the user already
+  // has a working account, just no membership yet.
+  //
+  // Legacy fallback: if the order was created without p_user_id (e.g. an
+  // older row from before this refactor), we still invite via Supabase Auth.
   let userId: string
-  try {
-    const authAdmin = getAuthAdmin()
-    const { data: invite, error: inviteErr } = await authAdmin.inviteUserByEmail(
-      orderInfo.order_email,
-      {
-        data: { full_name: orderInfo.order_full_name },
-        redirectTo: `${appUrl()}/auth/callback?next=/dashboard`,
-      },
-    )
-    if (inviteErr || !invite.user) {
-      throw new Error(inviteErr?.message ?? 'invite returned no user')
-    }
-    userId = invite.user.id
-  } catch (err) {
-    // Mark as failed — admin can retry / fix manually
-    const reason =
-      err instanceof Error ? `invite failed: ${err.message}` : 'invite failed'
+  const { data: prereg } = await supabase
+    .from('subscription_orders')
+    .select('provisioned_user_id')
+    .eq('id', orderId)
+    .maybeSingle()
+
+  if (prereg?.provisioned_user_id) {
+    userId = prereg.provisioned_user_id
+  } else {
+    // Legacy invite path (pre-v0.20 orders only)
+    const { getAuthAdmin } = await import('@/lib/supabase/auth-admin')
     try {
-      await supabase.rpc('mark_provisioning_failed', {
-        p_order_id: orderId,
-        p_failure_reason: reason,
-      })
-    } catch {
-      // last-resort
-    }
-    return {
-      success: false,
-      error:
-        'تَعذَّر إرسال دعوة Supabase. الطلب في حالة "فشل الـ provisioning" — يُمكنك إعادة المحاولة.',
+      const authAdmin = getAuthAdmin()
+      const { data: invite, error: inviteErr } =
+        await authAdmin.inviteUserByEmail(orderInfo.order_email, {
+          data: { full_name: orderInfo.order_full_name },
+          redirectTo: `${appUrl()}/auth/callback?next=/dashboard`,
+        })
+      if (inviteErr || !invite.user) {
+        throw new Error(inviteErr?.message ?? 'invite returned no user')
+      }
+      userId = invite.user.id
+    } catch (err) {
+      const reason =
+        err instanceof Error ? `invite failed: ${err.message}` : 'invite failed'
+      try {
+        await supabase.rpc('mark_provisioning_failed', {
+          p_order_id: orderId,
+          p_failure_reason: reason,
+        })
+      } catch {
+        // last-resort
+      }
+      return {
+        success: false,
+        error:
+          'تَعذَّر إرسال دعوة Supabase. الطلب في حالة "فشل الـ provisioning" — يُمكنك إعادة المحاولة.',
+      }
     }
   }
 

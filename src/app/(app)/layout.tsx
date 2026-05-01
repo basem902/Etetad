@@ -32,13 +32,24 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   if (buildings.length === 0) {
     if (await isSuperAdmin(user.id)) redirect('/super-admin')
 
-    const { data: pending } = await supabase
+    // Phase 17: pending join request as a resident (existing pattern)
+    const { data: pendingJoin } = await supabase
       .from('pending_apartment_members')
       .select('id')
       .eq('user_id', user.id)
       .eq('status', 'pending')
       .limit(1)
-    if (pending && pending.length > 0) {
+    if (pendingJoin && pendingJoin.length > 0) {
+      redirect('/account/pending')
+    }
+
+    // v0.20: pending subscription order as a new building admin (password
+    // upfront, awaiting super_admin approval). Same /account/pending page,
+    // different message section. RPC scopes by auth.uid() server-side.
+    const { data: pendingSubs } = await supabase.rpc(
+      'get_my_pending_subscription_orders',
+    )
+    if (pendingSubs && pendingSubs.length > 0) {
       redirect('/account/pending')
     }
 

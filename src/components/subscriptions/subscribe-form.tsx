@@ -146,15 +146,36 @@ export function SubscribeForm({ initialTier = 'pro', initialCycle = 'yearly' }: 
               />
             </div>
             <div>
-              <Label htmlFor="city">المدينة</Label>
+              <Label htmlFor="password">
+                كلمة المرور <span className="text-destructive">*</span>
+              </Label>
               <Input
-                id="city"
-                name="city"
-                maxLength={80}
+                id="password"
+                name="password"
+                type="password"
+                required
+                minLength={8}
+                maxLength={72}
+                dir="ltr"
+                autoComplete="new-password"
                 disabled={isPending}
-                placeholder="الرياض"
+                placeholder="٨ أحرف على الأقل"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                ستَستَخدمها للدخول بعد اعتماد طلبك من إدارة المنصة.
+              </p>
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="city">المدينة (اختياري)</Label>
+            <Input
+              id="city"
+              name="city"
+              maxLength={80}
+              disabled={isPending}
+              placeholder="الرياض"
+            />
           </div>
 
           <div>
@@ -191,10 +212,12 @@ export function SubscribeForm({ initialTier = 'pro', initialCycle = 'yearly' }: 
               ماذا يَحدث بعد الإرسال؟
             </div>
             <ul className="text-xs text-muted-foreground space-y-0.5 mr-5 list-disc">
-              <li>سَنُعرض عليك بيانات حساب بنكي + رقم مرجع</li>
+              <li>يُنشأ حسابك مَع كلمة المرور التي اخترتها</li>
+              <li>سَنَعرض عليك بيانات حساب بنكي + رقم مرجع</li>
               <li>تُحوِّل المبلغ مع ذكر رقم المرجع في حقل البيان</li>
-              <li>ترفع صورة الإيصال على نفس الصفحة</li>
-              <li>نُراجع التحويل خلال 24 ساعة، ثم نَفتح حسابك تلقائياً</li>
+              <li>تَرفَع صورة الإيصال على نَفس الصفحة</li>
+              <li>إدارة المنصة تُراجع التحويل خلال 24 ساعة وتَعتمد طَلبك</li>
+              <li>تَدخل لوحة عمارتك بـ بَريدك + كلمة مرورك</li>
             </ul>
           </div>
 

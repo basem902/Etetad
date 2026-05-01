@@ -8,6 +8,109 @@
 
 ---
 
+## [1.0.0-rc.1+4] — 2026-05-01 — Phase 20: /subscribe with password upfront
+
+> Operational refactor requested during smoke testing: change `/subscribe` to ask for password at registration, gate login behind super_admin approval, drop the 3-email "invite" dance. The user explicitly chose this UX after reviewing the original Phase 18 design ("payment-first, account on approval"). 7 files touched + 1 new SQL migration. Existing Phase 18 RPCs preserved with backwards compatibility.
+
+### Why
+
+The Phase 18 design assumed a "payment-first" flow where no auth account exists until super_admin approves a paid order, then `auth.admin.inviteUserByEmail` creates the account and the customer sets a password via `/forgot-password`. This works but requires 3 separate emails (order created + Supabase invite + password reset) and the customer is confused why `/subscribe` doesn't ask for a password like every other signup form.
+
+Operator preference: customer chooses password at `/subscribe`, account is created immediately (auto-confirmed email), but **login redirects to `/account/pending` until super_admin approves**. After approval, the customer logs in with the credentials they already chose. One email, predictable UX.
+
+### Added
+
+- **`supabase/21_phase20.sql`** (new migration):
+  - `create_subscription_order` RPC: accepts new optional `p_user_id uuid` parameter. When provided, the order's `provisioned_user_id` is set at INSERT time (legacy: NULL until approval). Old 9-arg signature explicitly DROPped to avoid PostgreSQL "function is not unique" errors.
+  - `get_my_pending_subscription_orders()` RPC: SECURITY DEFINER, scopes by `auth.uid()`, returns the calling user's own pending orders only. Used by `/account/pending` and `(app)/layout.tsx` to gate users awaiting approval.
+  - Validates that `p_user_id`, when provided, matches an actual `auth.users` row (defense against orphan provisioned_user_id values).
+
+- **`src/types/database.ts`**:
+  - `create_subscription_order.Args.p_user_id?: string | null`
+  - New `get_my_pending_subscription_orders` RPC type with full row shape.
+
+### Changed
+
+- **`src/components/subscriptions/subscribe-form.tsx`**: added `<Input name="password">` field with helper text "ستَستَخدمها للدخول بعد اعتماد طلبك". Updated the "what happens after submission" notes to mention "تَدخل لوحة عمارتك بـ بَريدك + كلمة مرورك".
+
+- **`src/actions/subscriptions.ts` — `createSubscriptionOrderAction`**:
+  - Added `password` to Zod schema (8–72 chars).
+  - Before calling `create_subscription_order` RPC, calls `authAdmin.createUser({ email, password, email_confirm: true, user_metadata })` to pre-create the auth account.
+  - Passes the resulting `userId` as `p_user_id` to the RPC.
+  - On RPC failure: best-effort `authAdmin.deleteUser(userId)` to avoid orphan auth accounts.
+  - Surfaces clear Arabic error if email is already taken (instead of generic "تَعذَّر إنشاء الطلب").
+
+- **`src/actions/subscriptions.ts` — `approveOrderAction`**:
+  - Reads `subscription_orders.provisioned_user_id` before the invite step.
+  - If pre-set (new flow): skips `inviteUserByEmail`, uses the existing user_id, calls `complete_provisioning` directly.
+  - If null (legacy orders from before this refactor): falls through to the old invite path. Preserves the legacy flow for any in-flight pre-Phase-20 orders.
+
+- **`src/app/(app)/layout.tsx`**: when user has zero buildings and no pending join request, also checks `get_my_pending_subscription_orders()`. If non-empty → redirect to `/account/pending`. Pre-Phase-20 the only pending state was Phase 17 join requests; now subscription orders are gated identically.
+
+- **`src/app/account/pending/page.tsx`**: new section showing pending subscription order with reference number + status-specific message (awaiting_payment vs awaiting_review vs provisioning vs provisioning_failed). Rejected orders also surfaced. Removed the "تسجيل عمارتك الخاصة" link when the user has an active subscription order (they shouldn't be told to start fresh).
+
+### Tests
+
+- 7 new SQL tests (Phase 20) → **385/385**:
+  - 20.1: `create_subscription_order` accepts `p_user_id` and pre-fills `provisioned_user_id`
+  - 20.2: legacy 9-arg call still works (backwards compat)
+  - 20.3: invalid `p_user_id` (no matching auth.users) is rejected
+  - 20.4: `provisioned_user_id` immutable post-INSERT (Phase 18 trigger still enforced)
+  - 20.5: user sees their own pending orders via the new RPC
+  - 20.6: cross-user scope — user can't see others' pending orders
+  - 20.7: anon (auth.uid() null) gets empty result, not an error
+
+### Lessons (new)
+
+- **#50**: a UX choice (password-upfront vs invite-on-approval) drives a SQL design choice (provisioned_user_id at INSERT vs at approval). The operator preference came AFTER 19 phases of review — the architecture had to accommodate both flows during transition. Lesson: optional parameters with default null are the cleanest backwards-compat path. The old 9-arg callers continue to work; new callers opt-in via the 10th arg.
+- **#51**: when refactoring an RPC's signature, `CREATE OR REPLACE FUNCTION` does NOT replace if the arg list differs — PostgreSQL treats it as a new overload. Result: ambiguous calls. Always `DROP FUNCTION ... (old args)` explicitly before redefining with new args, even if you intend `CREATE OR REPLACE`.
+
+### Non-functional
+- typecheck ✅ / lint ✅ / build ✅ / SW postbuild ✅
+- sql-validate ✅ **385/385**
+- audit ✅ 0 vulnerabilities
+
+---
+
+## [1.0.0-rc.1+2] — 2026-05-01 — RC1 first-deploy hotfixes (HTTP 431 + onboarding loop + RSC icon boundary)
+
+> Patch on `1.0.0-rc.1+1` — first attempt at running the dev server end-to-end revealed three issues that the SQL test suite couldn't catch (they require a real browser + real auth callback + real RSC rendering). All three fixed.
+
+### Fixed
+
+- **HTTP 431 on `/auth/callback` after email confirmation**: Next.js dev server's default max HTTP header size (16KB) is exceeded by Supabase's chunked auth cookies + the `next` query param + accumulated localhost cookies. The callback URL succeeded on Supabase's side (code generated correctly) but the dev server rejected the request before reaching the route handler. **Fix**: `package.json` `dev` script now uses `cross-env NODE_OPTIONS=--max-http-header-size=65536` (4× default). Cross-platform via `cross-env` dev dep. Production unaffected (Vercel handles large headers natively).
+
+- **`ERR_TOO_MANY_REDIRECTS` on `/onboarding`** (Phase 14 bug, escaped 19 phases): `src/app/(app)/layout.tsx` redirected to `/onboarding` when the user has zero buildings. But `/onboarding/page.tsx` lived inside the `(app)` route group, so the layout re-ran on the redirect target → infinite loop. The page had its own minimal layout (no AppShell) so the (app) group membership was never functional. **Fix**: moved `src/app/(app)/onboarding/page.tsx` → `src/app/onboarding/page.tsx` (top-level, outside the (app) group). The `/onboarding` URL is unchanged. AppLayout no longer runs for it, so the redirect from AppLayout → /onboarding terminates cleanly.
+
+- **RSC boundary error on `/super-admin`** (Phase 14 bug, escaped 19 phases): `src/app/(super-admin)/layout.tsx` (Server Component) imported lucide icons and passed them as `icon={LayoutDashboard}` etc. to `<NavLink>` (Client Component). React 19 + Next.js 15 strictly enforce the RSC→Client boundary: only plain serializable values can cross. Function/object props (like Lucide icon components, which have `$$typeof` + `render` methods) throw "Only plain objects can be passed". Build + typecheck don't catch this — it's a runtime serialization error. **Fix**: extracted the nav into a new Client Component `src/components/super-admin/super-admin-nav.tsx` that imports its own icons. The Server Component layout now just renders `<SuperAdminNav />` with no icon props crossing the boundary. Other NavLink call sites (app-sidebar, bottom-nav) were already inside Client Components — unaffected.
+
+- **Login redirected to public landing instead of dashboard** (Phase 16 regression, escaped 4 phases): `LoginForm` after successful auth ran `router.replace('/')`. The comment said the root would route smartly to dashboard/onboarding/super-admin based on user state. That was true BEFORE Phase 16 — when marketing landed, `/` became a public landing page (under `(marketing)/page.tsx`) for guests + logged-in users alike. Result: login succeeded but user got stuck on the marketing landing instead of their dashboard. **Fix**: route to `/dashboard` after login. The `(app)/layout.tsx` (already fixed for the onboarding loop earlier in this same patch) dispatches: super_admin → `/super-admin`, no buildings → `/onboarding`, has buildings → render dashboard.
+
+### Changed
+- `package.json` — `dev` script wraps `next dev` with `cross-env NODE_OPTIONS=--max-http-header-size=65536`.
+- `package.json` — added `cross-env ^10.1.0` to devDependencies.
+- `src/app/(app)/onboarding/page.tsx` → `src/app/onboarding/page.tsx` (move, no content change).
+- `src/app/(super-admin)/layout.tsx` — replaced inline `<NavLink>` block (with icon component props) with `<SuperAdminNav />` client wrapper. Dropped icon imports from this server component.
+- `src/components/super-admin/super-admin-nav.tsx` — new (Client Component nav with its own lucide imports).
+- `src/components/auth/login-form.tsx` — `router.replace('/')` → `router.replace('/dashboard')` after successful login.
+- `.gitignore` — added `supabase/_prod-*.sql` (temp deploy chunks).
+- `scripts/apply-migrations.mjs` — new (one-shot Postgres migration runner via `pg`).
+- `package.json` — added `pg ^8.20.0` to devDependencies (for migration runner).
+
+### Lessons (new — first-deploy reality)
+
+- **#46**: dev-server defaults are ALL designed for tiny apps. Real auth flows (Supabase chunked cookies + OAuth state + redirect chains) routinely blow past defaults like `max-http-header-size`. Set generous limits in `dev` scripts proactively — don't wait for HTTP 431 in the field.
+- **#47**: when a layout redirects to a route that uses the SAME layout, it's an infinite loop waiting to happen. The route group system in Next.js makes this easy to miss because the URL doesn't reveal the layout boundary. Audit: every `redirect(X)` in a layout where X resolves to the same layout = bug. Either move X out of the group, or add a pathname guard at the top of the layout (read from headers, set by middleware).
+- **#48**: passing a function/component (like a Lucide icon) from a Server Component to a Client Component throws at RUNTIME, not at build/typecheck. Build sees `LucideIcon` is a valid type, but React's serializer at request time can't cross-boundary it. Two safe patterns: (a) keep nav configs entirely inside `'use client'` modules so icons never cross, or (b) pre-render the icon as JSX (`<Icon />`) in the Server Component and pass as `ReactNode`. Audit hint: any Server Component importing from `lucide-react` AND passing icons as props to a `'use client'` child is a latent bug.
+- **#49**: when route purpose changes (e.g., Phase 16 turned `/` from "smart auth router" into "public marketing landing"), every redirect target that pointed there needs an audit. The LoginForm comment "the root page redirects to dashboard / onboarding / super-admin" was once true, then silently became false 4 phases ago. The comment masked the regression. Pattern: when a route changes role, grep for redirects to it and update them. A short-lived "smart router" that becomes public landing is a common refactor accident.
+
+### Tests
+- typecheck ✅ / lint ✅ / build ✅ / SW postbuild ✅
+- sql-validate ✅ **378/378** (no SQL changed)
+- audit ✅ 0 vulnerabilities
+
+---
+
 ## [1.0.0-rc.1+1] — 2026-05-01 — RC1 docs hotfix (1× P2 from Codex)
 
 > Patch on `1.0.0-rc.1` — docs only، لا تَغيير على code. لا يَستحق RC2 لأن الـ scope ثابت (freeze).

@@ -27,8 +27,8 @@ export function Hero() {
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button size="lg" asChild>
-              <Link href="/register">
-                ابدأ تجربتك المجانية
+              <Link href="/subscribe?tier=pro&cycle=yearly">
+                ابدأ اشتراكك الآن
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>

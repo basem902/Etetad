@@ -48,8 +48,8 @@ export function MarketingFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/register" className="hover:text-foreground transition-colors">
-                  حساب جديد
+                <Link href="/subscribe?tier=pro&cycle=yearly" className="hover:text-foreground transition-colors">
+                  اشترك الآن
                 </Link>
               </li>
             </ul>

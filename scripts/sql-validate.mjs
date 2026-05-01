@@ -610,6 +610,7 @@ const allFiles = [
   'supabase/18_phase17.sql',
   'supabase/19_phase18.sql',
   'supabase/20_phase19.sql',
+  'supabase/21_phase20.sql',
 ]
 
 log('\n=== Applying SQL files 01→19 (raw output) ===')
@@ -11453,6 +11454,217 @@ try {
   }
 } catch (e) {
   fail(`Phase 19 (round 2 P2 #4) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// =============================================
+// Phase 20 (1.0.0-rc.1+4 ops refactor): /subscribe with password upfront
+// =============================================
+log(`\n=== Phase 20 tests (subscribe-with-password + pre-registered user_id) ===`)
+
+const PHASE20_USER = '20202020-aaaa-bbbb-cccc-aaaa00000001'
+
+// 20.1 — create_subscription_order accepts p_user_id and pre-fills provisioned_user_id
+try {
+  await db2.exec(`reset role`)
+  await db2.exec(`set app.current_user_id = '${SUPER_ID}'`)
+
+  // Pre-create a fake auth user (mimicking authAdmin.createUser from server action)
+  await db2.exec(`
+    insert into auth.users (id, email) values
+      ('${PHASE20_USER}'::uuid, 'preregister1@test')
+    on conflict (id) do nothing;
+  `)
+  // The handle_new_user trigger creates a profile automatically; ensure it has a name
+  await db2.exec(`
+    insert into public.profiles (id, full_name, phone) values
+      ('${PHASE20_USER}'::uuid, 'Pre Registered User 1', '+966500999111')
+    on conflict (id) do update set full_name = excluded.full_name, phone = excluded.phone;
+  `)
+
+  const tokenHash = '20202020aaaa20202020bbbb20202020cccc20202020dddd20202020eeee2020'
+  const r = await db2.query(`
+    select * from public.create_subscription_order(
+      'Pre Registered User 1', 'preregister1@test', '+966500999111',
+      'P20 Building', null, null, 'pro', 'yearly', '${tokenHash}',
+      '${PHASE20_USER}'::uuid
+    )
+  `)
+  const orderId = r.rows[0]?.order_id
+
+  const verify = await db2.query(`
+    select provisioned_user_id, status from public.subscription_orders
+    where id = '${orderId}'::uuid
+  `)
+  const row = verify.rows[0]
+
+  if (
+    row?.provisioned_user_id === PHASE20_USER &&
+    row?.status === 'awaiting_payment'
+  ) {
+    ok(`Phase 20: create_subscription_order يَقبل p_user_id ويَحفظه provisioned_user_id فوراً (status=awaiting_payment)`)
+    passed++
+  } else {
+    fail(`Phase 20: pre-fill خطأ: ${JSON.stringify(row)}`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 20 (20.1) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 20.2 — backwards compat: legacy 9-arg call (no p_user_id) still works
+try {
+  await db2.exec(`set app.current_user_id = '${SUPER_ID}'`)
+  const tokenHash = '20202020aaaa20202020bbbb20202020cccc20202020dddd20202020eeee2021'
+  const r = await db2.query(`
+    select * from public.create_subscription_order(
+      'Legacy User', 'legacyuser@test', '+966500999222',
+      'Legacy Bldg', null, null, 'basic', 'monthly', '${tokenHash}'
+    )
+  `)
+  const orderId = r.rows[0]?.order_id
+  const verify = await db2.query(`
+    select provisioned_user_id, status from public.subscription_orders
+    where id = '${orderId}'::uuid
+  `)
+  if (
+    verify.rows[0]?.provisioned_user_id === null &&
+    verify.rows[0]?.status === 'awaiting_payment'
+  ) {
+    ok(`Phase 20: legacy 9-arg call (no p_user_id) ما زال يَعمل، provisioned_user_id يَبقى null`)
+    passed++
+  } else {
+    fail(`Phase 20: legacy call خطأ: ${JSON.stringify(verify.rows[0])}`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 20 (20.2) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 20.3 — invalid p_user_id (non-existent auth user) is rejected
+try {
+  const tokenHash = '20202020aaaa20202020bbbb20202020cccc20202020dddd20202020eeee2022'
+  let blocked = false
+  try {
+    await db2.query(`
+      select * from public.create_subscription_order(
+        'Ghost', 'ghost@test', '+966500999333',
+        'Ghost Bldg', null, null, 'pro', 'monthly', '${tokenHash}',
+        '99999999-0000-0000-0000-000000000000'::uuid
+      )
+    `)
+  } catch (innerE) {
+    if ((innerE.message || '').toLowerCase().includes('does not match any auth.users')) {
+      blocked = true
+    }
+  }
+  if (blocked) {
+    ok(`Phase 20: create_subscription_order يَرفض p_user_id غير موجود في auth.users`)
+    passed++
+  } else {
+    fail(`Phase 20: قَبِل user_id وهمي!`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 20 (20.3) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 20.4 — provisioned_user_id immutable (Phase 18 trigger still enforced)
+try {
+  await db2.exec(`set app.current_user_id = '${SUPER_ID}'`)
+  const orderRow = await db2.query(`
+    select id, provisioned_user_id from public.subscription_orders
+    where provisioned_user_id = '${PHASE20_USER}'::uuid
+    limit 1
+  `)
+  const orderId = orderRow.rows[0]?.id
+
+  let blocked = false
+  try {
+    await db2.exec(`
+      update public.subscription_orders
+      set provisioned_user_id = '${SUPER_ID}'::uuid
+      where id = '${orderId}'::uuid
+    `)
+  } catch (innerE) {
+    if ((innerE.message || '').toLowerCase().includes('immutable')) {
+      blocked = true
+    }
+  }
+  if (blocked) {
+    ok(`Phase 20: provisioned_user_id immutable (Phase 18 trigger يَعمل بعد الـ pre-fill)`)
+    passed++
+  } else {
+    fail(`Phase 20: provisioned_user_id قابل للتَغيير!`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 20 (20.4) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 20.5 — get_my_pending_subscription_orders returns user's own pending orders only
+try {
+  await db2.exec(`reset role`)
+  await db2.exec(`set app.current_user_id = '${PHASE20_USER}'`)
+  const r = await db2.query(`
+    select reference_number, status, building_name
+    from public.get_my_pending_subscription_orders()
+  `)
+  // We expect at least one row (the order from test 20.1)
+  const found = r.rows.find((x) => x.building_name === 'P20 Building')
+  if (found && found.status === 'awaiting_payment') {
+    ok(`Phase 20: get_my_pending_subscription_orders يَرجع طَلبات المُستخدم الخاصة بـ awaiting_payment`)
+    passed++
+  } else {
+    fail(`Phase 20: lookup خطأ: ${JSON.stringify(r.rows)}`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 20 (20.5) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 20.6 — different user does NOT see another user's pending orders (RLS scope)
+try {
+  // Pretend to be another user
+  await db2.exec(`set app.current_user_id = '${SUPER_ID}'`)  // super_admin's UUID for this purpose
+  const r = await db2.query(`
+    select count(*)::int as c
+    from public.get_my_pending_subscription_orders()
+    where building_name = 'P20 Building'
+  `)
+  if (r.rows[0].c === 0) {
+    ok(`Phase 20: get_my_pending_subscription_orders يُحدِّد scope بـ auth.uid() — لا يُسرِّب طَلبات غَيره`)
+    passed++
+  } else {
+    fail(`Phase 20: cross-user leak — صَحيح ${r.rows[0].c} رَأى طَلبات غَيره!`)
+    failed++
+  }
+} catch (e) {
+  fail(`Phase 20 (20.6) فشل: ${e.message.slice(0, 150)}`)
+  failed++
+}
+
+// 20.7 — anon (auth.uid() null) gets empty result, not an error
+try {
+  await db2.exec(`set app.current_user_id = ''`)
+  const r = await db2.query(`
+    select count(*)::int as c from public.get_my_pending_subscription_orders()
+  `)
+  if (r.rows[0].c === 0) {
+    ok(`Phase 20: get_my_pending_subscription_orders يَرجع فارغاً للـ anon (auth.uid()=null)`)
+    passed++
+  } else {
+    fail(`Phase 20: anon قرأ ${r.rows[0].c} rows!`)
+    failed++
+  }
+} catch (e) {
+  await db2.exec(`set app.current_user_id = '${SUPER_ID}'`).catch(() => {})
+  fail(`Phase 20 (20.7) فشل: ${e.message.slice(0, 150)}`)
   failed++
 }
 

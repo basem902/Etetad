@@ -48,23 +48,49 @@ export default async function AccountPendingPage() {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
-  if (!pending || pending.length === 0) {
+  // v0.20: also fetch pending subscription orders (new building admin path)
+  const { data: pendingSubs } = await supabase.rpc(
+    'get_my_pending_subscription_orders',
+  )
+
+  // No pending join requests AND no pending subscription orders → onboarding
+  if (
+    (!pending || pending.length === 0) &&
+    (!pendingSubs || pendingSubs.length === 0)
+  ) {
     redirect('/onboarding')
   }
 
   // Fetch building names (separate query — RLS allows pending users to read
   // buildings they have a pending request for via the SELECT policy on buildings)
-  const buildingIds = Array.from(new Set(pending.map((p) => p.building_id)))
-  const { data: buildings } = await supabase
-    .from('buildings')
-    .select('id, name, city')
-    .in('id', buildingIds)
+  const pendingArr = pending ?? []
+  const buildingIds = Array.from(new Set(pendingArr.map((p) => p.building_id)))
+  const { data: buildings } = buildingIds.length
+    ? await supabase
+        .from('buildings')
+        .select('id, name, city')
+        .in('id', buildingIds)
+    : { data: [] as { id: string; name: string; city: string | null }[] | null }
   const buildingMap = new Map(
     (buildings ?? []).map((b) => [b.id, { name: b.name, city: b.city }] as const),
   )
 
-  const activePending = pending.find((p) => p.status === 'pending')
-  const rejected = pending.filter((p) => p.status === 'rejected')
+  const activePending = pendingArr.find((p) => p.status === 'pending')
+  const rejected = pendingArr.filter((p) => p.status === 'rejected')
+
+  // v0.20: pending subscription order(s) — building admin awaiting super_admin
+  // approval. Show the most recent one (typically there's only one in flight
+  // since create_renewal_order blocks duplicates, but new orders can chain
+  // after a terminal rejection).
+  const pendingSubsArr = pendingSubs ?? []
+  const activeSubOrder = pendingSubsArr.find(
+    (s) =>
+      s.status === 'awaiting_payment' ||
+      s.status === 'awaiting_review' ||
+      s.status === 'provisioning' ||
+      s.status === 'provisioning_failed',
+  )
+  const rejectedSubOrder = pendingSubsArr.find((s) => s.status === 'rejected')
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -94,6 +120,81 @@ export default async function AccountPendingPage() {
 
       <main className="flex-1 px-4 py-12 md:px-6 md:py-16">
         <div className="mx-auto max-w-2xl space-y-6">
+          {activeSubOrder ? (
+            <Card>
+              <CardContent className="pt-8 pb-10 text-center">
+                <div
+                  aria-hidden
+                  className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-warning/10 text-warning"
+                >
+                  <Clock className="h-7 w-7" />
+                </div>
+                <h2 className="text-xl font-semibold mb-2">
+                  طَلب الاشتراك بانتظار الاعتماد
+                </h2>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  طَلب اشتراك عمارة{' '}
+                  <strong>{activeSubOrder.building_name}</strong> بانتظار مُراجعة
+                  إدارة المنصة.
+                </p>
+                <p className="text-xs text-muted-foreground mt-3">
+                  رقم المرجع:{' '}
+                  <span className="font-mono">
+                    {activeSubOrder.reference_number}
+                  </span>
+                </p>
+                {activeSubOrder.status === 'awaiting_payment' && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    لم نَستلم إيصال التَحويل بَعد. تَفقَّد بَريدك للحصول على
+                    تَفاصيل الحساب البَنكي ورابط رَفع الإيصال.
+                  </p>
+                )}
+                {activeSubOrder.status === 'awaiting_review' && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    تم استلام الإيصال. عادةً نَرد خلال 24 ساعة.
+                  </p>
+                )}
+                {activeSubOrder.status === 'provisioning' && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    تم اعتماد دَفعتك — جارٍ تَجهيز عمارتك. أَعِد المُحاولة بعد
+                    قَليل.
+                  </p>
+                )}
+                {activeSubOrder.status === 'provisioning_failed' && (
+                  <p className="text-xs text-destructive mt-2">
+                    تَعذَّرت العَملية تقنياً. تَواصل مع إدارة المنصة لإعادة
+                    المُحاولة.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-4">
+                  أُرسل الطلب {formatRelative(activeSubOrder.created_at)}.
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {rejectedSubOrder && !activeSubOrder ? (
+            <Card>
+              <CardContent className="pt-6 pb-6">
+                <h3 className="font-semibold mb-2">طلب اشتراك سابق مَرفوض</h3>
+                <p className="text-sm text-muted-foreground">
+                  رقم المرجع:{' '}
+                  <span className="font-mono">
+                    {rejectedSubOrder.reference_number}
+                  </span>
+                </p>
+                {rejectedSubOrder.rejection_reason && (
+                  <p className="text-sm text-muted-foreground mt-2 border-r-2 border-destructive pr-3">
+                    السبب: {rejectedSubOrder.rejection_reason}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-3">
+                  يُمكنك التَواصل مَع إدارة المنصة أو إعادة التَقديم.
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {activePending ? (
             <Card>
               <CardContent className="pt-8 pb-10 text-center">
@@ -146,13 +247,12 @@ export default async function AccountPendingPage() {
             </Card>
           )}
 
-          <p className="text-center text-xs text-muted-foreground">
-            أَو يُمكنك{' '}
-            <Link href="/onboarding" className="text-primary hover:underline">
-              تسجيل عمارتك الخاصة
-            </Link>{' '}
-            بدلاً من الانتظار.
-          </p>
+          {!activeSubOrder && (
+            <p className="text-center text-xs text-muted-foreground">
+              تأكَّد من أن بَريدك مُفعَّل لتَستلم إشعار الموافَقة. لو لديك
+              استفسار، تَواصل مَع إدارة المنصة.
+            </p>
+          )}
         </div>
       </main>
     </div>

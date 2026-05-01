@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Building2, FileText, LayoutDashboard, ShieldCheck, Users } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import { isSuperAdmin, requireUser } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/server'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { UserMenu } from '@/components/layout/user-menu'
-import { NavLink } from '@/components/layout/nav-link'
+import { SuperAdminNav } from '@/components/super-admin/super-admin-nav'
 
 export default async function SuperAdminLayout({
   children,
@@ -56,35 +56,8 @@ export default async function SuperAdminLayout({
             </div>
           </div>
 
-          {/* Sub-navigation */}
-          <nav
-            className="border-t border-border px-4 md:px-6 overflow-x-auto"
-            aria-label="تنقّل لوحة المنصة"
-          >
-            <div className="flex items-center gap-1 py-1 min-w-max">
-              <NavLink
-                href="/super-admin"
-                exact
-                icon={LayoutDashboard}
-                label="الرئيسية"
-              />
-              <NavLink
-                href="/super-admin/buildings"
-                icon={Building2}
-                label="العمارات"
-              />
-              <NavLink
-                href="/super-admin/users"
-                icon={Users}
-                label="المستخدمون"
-              />
-              <NavLink
-                href="/super-admin/audit"
-                icon={FileText}
-                label="السجلات"
-              />
-            </div>
-          </nav>
+          {/* Sub-navigation (client component — icons can't cross RSC boundary) */}
+          <SuperAdminNav />
         </header>
 
         <main className="flex-1 px-4 py-6 md:px-6">

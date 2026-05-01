@@ -20,9 +20,14 @@ export function LoginForm() {
       const result = await loginAction(formData)
       if (result.success) {
         toast.success(result.message ?? 'تم تسجيل الدخول')
-        // The root page redirects to dashboard / onboarding / super-admin
-        // based on user state, so route there instead of hardcoding.
-        router.replace('/')
+        // Route to /dashboard so (app)/layout.tsx can dispatch:
+        //   super_admin → /super-admin
+        //   no buildings → /onboarding (or /account/pending)
+        //   has buildings → render dashboard
+        // Phase 16 made `/` a public marketing landing — the previous
+        // `router.replace('/')` left logged-in users stuck on the landing
+        // (RC1+3 fix).
+        router.replace('/dashboard')
         router.refresh()
       } else {
         setError(result.error)
@@ -77,8 +82,8 @@ export function LoginForm() {
         </Link>
         <p className="text-muted-foreground">
           ليس لديك حساب؟{' '}
-          <Link href="/register" className="font-medium text-foreground underline">
-            سجّل عمارة جديدة
+          <Link href="/subscribe?tier=pro&cycle=yearly" className="font-medium text-foreground underline">
+            اشترك الآن
           </Link>
         </p>
       </div>

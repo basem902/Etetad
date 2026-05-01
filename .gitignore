@@ -38,3 +38,6 @@ Thumbs.db
 # misc
 *.pem
 coverage
+
+# temp deploy artifacts (concatenated SQL chunks for one-shot dashboard paste)
+supabase/_prod-*.sql

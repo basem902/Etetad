@@ -5,7 +5,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 
 /**
  * Header للـ (marketing) routes فقط — مختلف عن AppShell و SuperAdminLayout.
- * بسيط: logo + روابط + CTA "ابدأ" يَذهب لـ /register.
+ * بسيط: logo + روابط + CTA "ابدأ" يَذهب لـ /subscribe (Phase 19+: approval-only).
  */
 export function MarketingHeader() {
   return (
@@ -30,7 +30,7 @@ export function MarketingHeader() {
             <Link href="/login">دخول</Link>
           </Button>
           <Button size="sm" asChild>
-            <Link href="/register">ابدأ مجاناً</Link>
+            <Link href="/subscribe?tier=pro&cycle=yearly">ابدأ الآن</Link>
           </Button>
         </nav>
 
@@ -39,7 +39,7 @@ export function MarketingHeader() {
             <Link href="/pricing">الباقات</Link>
           </Button>
           <Button size="sm" asChild>
-            <Link href="/register">ابدأ</Link>
+            <Link href="/subscribe?tier=pro&cycle=yearly">ابدأ</Link>
           </Button>
         </div>
 

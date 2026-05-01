@@ -1497,6 +1497,9 @@ export type Database = {
           p_tier_id: string
           p_cycle: SubscriptionOrderCycle
           p_token_hash: string
+          // Phase 20: optional pre-created auth user id for password-upfront flow.
+          // null = legacy (super_admin will invite on approval).
+          p_user_id?: string | null
         }
         Returns: {
           order_id: string
@@ -1674,6 +1677,22 @@ export type Database = {
           p_error: string | null
         }
         Returns: void
+      }
+      // Phase 20 — authenticated user reads their own pending subscription orders
+      // (used by /account/pending and AppLayout to gate users with pre-registered
+      // /subscribe accounts whose orders haven't been approved yet)
+      get_my_pending_subscription_orders: {
+        Args: Record<string, never>
+        Returns: {
+          reference_number: string
+          status: SubscriptionOrderStatus
+          building_name: string
+          total_amount: number
+          currency: string
+          created_at: string
+          is_renewal: boolean
+          rejection_reason: string | null
+        }[]
       }
     }
 
