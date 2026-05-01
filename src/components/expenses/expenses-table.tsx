@@ -55,7 +55,48 @@ export function ExpensesTable({
 
   return (
     <div className="space-y-3">
-      <Card className="overflow-hidden">
+      {/* Mobile: card stack */}
+      <div className="md:hidden space-y-3">
+        {rows.map((e) => (
+          <Link key={e.id} href={`/expenses/${e.id}`} className="block">
+            <Card className="hover:bg-muted/30 transition-colors">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{e.title}</div>
+                    {e.category && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        {e.category}
+                      </div>
+                    )}
+                  </div>
+                  <ExpenseStatusBadge status={e.status} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold tabular-nums">
+                    {formatCurrency(Number(e.amount))}
+                  </span>
+                  {e.vendor_name && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[50%]">
+                      {e.vendor_name}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
+                  <span>{formatDate(e.expense_date)}</span>
+                  <span className="inline-flex items-center gap-1 text-foreground">
+                    التفاصيل
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <Card className="overflow-hidden hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full min-w-[860px] text-sm">
             <thead className="bg-muted/40 text-muted-foreground">

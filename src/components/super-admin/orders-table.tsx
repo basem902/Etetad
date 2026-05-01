@@ -23,9 +23,54 @@ export function OrdersTable({ rows }: Props) {
   }
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-0 overflow-x-auto">
-        <table className="w-full min-w-[860px] text-sm">
+    <>
+      {/* Mobile: card stack */}
+      <div className="md:hidden space-y-3">
+        {rows.map((row) => (
+          <Link
+            key={row.id}
+            href={`/super-admin/orders/${row.id}`}
+            className="block"
+          >
+            <Card className="hover:bg-muted/30 transition-colors">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {row.reference_number}
+                    </div>
+                    <div className="font-semibold truncate">{row.full_name}</div>
+                  </div>
+                  <OrderStatusBadge status={row.status} />
+                </div>
+                <div className="text-sm truncate">{row.building_name}</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold tabular-nums">
+                    {formatCurrency(Number(row.total_amount))}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {row.tier_id} · {row.cycle === 'monthly' ? 'شهري' : 'سنوي'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
+                  <span title={formatDateTime(row.created_at)}>
+                    {formatRelative(row.created_at)}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-foreground">
+                    التفاصيل
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <Card className="overflow-hidden hidden md:block">
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-muted/40 text-muted-foreground">
             <tr>
               <th className="h-10 px-3 text-right font-medium align-middle">
@@ -93,5 +138,6 @@ export function OrdersTable({ rows }: Props) {
         </table>
       </CardContent>
     </Card>
+    </>
   )
 }

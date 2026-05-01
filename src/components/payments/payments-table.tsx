@@ -62,7 +62,44 @@ export function PaymentsTable({
 
   return (
     <div className="space-y-3">
-      <Card className="overflow-hidden">
+      {/* Mobile: card stack */}
+      <div className="md:hidden space-y-3">
+        {rows.map((p) => (
+          <Link key={p.id} href={`/payments/${p.id}`} className="block">
+            <Card className="hover:bg-muted/30 transition-colors">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-semibold">شقة {p.apartment_number ?? '—'}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatMonth(p.period_month)}
+                    </div>
+                  </div>
+                  <PaymentStatusBadge status={p.status} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold tabular-nums">
+                    {formatCurrency(Number(p.amount))}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {METHOD_LABELS[p.method]}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
+                  <span>{formatDate(p.payment_date)}</span>
+                  <span className="inline-flex items-center gap-1 text-foreground">
+                    التفاصيل
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <Card className="overflow-hidden hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full min-w-[860px] text-sm">
             <thead className="bg-muted/40 text-muted-foreground">

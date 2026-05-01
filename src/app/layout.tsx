@@ -43,6 +43,15 @@ export const metadata: Metadata = {
     locale: 'ar_SA',
     siteName: 'إدارة العمارة',
   },
+  // Explicit manifest reference (Next.js auto-detects, but some Lighthouse
+  // versions miss the auto-detected one). Also exports apple-web-app meta
+  // so iOS opens the app in standalone mode after "Add to Home Screen".
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'إدارة العمارة',
+  },
 }
 
 export const viewport: Viewport = {
